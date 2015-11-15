@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/dlorch/pycep.svg?branch=master)](https://travis-ci.org/dlorch/pycep)
-[![Documentation Status](https://readthedocs.org/projects/pycep/badge/?version=latest)](http://pycep.readthedocs.org/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/pycep/badge/?version=latest)](http://www.pycep.org/en/latest/?badge=latest)
 
 PyCep - Python Inception
 ========================
