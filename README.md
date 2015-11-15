@@ -1,12 +1,11 @@
 PyCep - Python Inception
 ========================
 
-PyCep is a Python interpreter in Python, created as a study project to teach
-myself about writing interpreters.
+[PyCep](http://www.pycep.org/) is a Python interpreter in Python, created as a
+study project to teach [myself](https://github.com/dlorch) about writing
+interpreters.
 
-Project Homepage: http://www.pycep.org/
+Documentation
+-------------
 
-Authors
--------
-
-Daniel Lorch dlorch@gmail.com
+Documentation and links to additional resources are available at http://www.pycep.org/
