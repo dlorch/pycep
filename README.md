@@ -8,8 +8,8 @@ PyCep - Python Inception
 study project to teach [myself](https://github.com/dlorch) about writing
 interpreters.
 
-Try it out
-----------
+Development
+-----------
 
 Fork a workspace from https://c9.io/dlorch/pycep
 
