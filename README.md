@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/dlorch/pycep.svg?branch=master)](https://travis-ci.org/dlorch/pycep)
 [![Documentation Status](https://readthedocs.org/projects/pycep/badge/?version=latest)](http://www.pycep.org/en/latest/?badge=latest)
+[![PyPI version](https://badge.fury.io/py/pycep.svg)](https://badge.fury.io/py/pycep)
 
 PyCep - Python Inception
 ========================
