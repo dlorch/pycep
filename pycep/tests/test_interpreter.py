@@ -1,37 +1,11 @@
 import unittest
 from os import path
+import pycep.interpreter
+
+SAMPLE_PROGRAMS = path.abspath(path.join(path.dirname(__file__), "programs"))
 
 class TestInterpreter(unittest.TestCase):
     
-    # def test_beer(self):
-    #     self.fail("Interpreter missing")
-        
-    # def test_classes(self):
-    #     self.fail("Interpreter missing")
-
-    # def test_cliexception(self):
-    #     self.fail("Interpreter missing")
-
-    # def test_friends(self):
-    #     self.fail("Interpreter missing")
-
-    # def test_fib(self):
-    #     self.fail("Interpreter missing")
-
-    # def test_functions(self):
-    #     self.fail("Interpreter missing")
-
     def test_helloworld(self):
-        self.fail("Interpreter missing")
-
-    # def test_parentsbabies(self):
-    #     self.fail("Interpreter missing")
-
-    # def test_primes(self):
-    #     self.fail("Interpreter missing")
-
-    # def test_queens(self):
-    #     self.fail("Interpreter missing")
-
-    # def test_regex(self):
-    #     self.fail("Interpreter missing")
+        filename = path.join(SAMPLE_PROGRAMS, "helloworld.py")
+        self.assertEquals(pycep.interpreter.execfile(filename), execfile(filename))
