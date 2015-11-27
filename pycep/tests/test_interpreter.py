@@ -1,11 +1,22 @@
 import unittest
+import sys
 from os import path
+from StringIO import StringIO
 import pycep.interpreter
 
 SAMPLE_PROGRAMS = path.abspath(path.join(path.dirname(__file__), "programs"))
 
 class TestInterpreter(unittest.TestCase):
 
+    def _capture_output(self, fn, *args, **kwargs):
+        old_stdout = sys.stdout
+        sys.stdout = captured_output = StringIO()
+        fn(*args, **kwargs)
+        sys.stdout = old_stdout
+        
+        return captured_output.getvalue()
+
     def test_helloworld(self):
         filename = path.join(SAMPLE_PROGRAMS, "helloworld.py")
-        self.assertEquals(pycep.interpreter.execfile(filename), execfile(filename))
+        self.assertEquals(self._capture_output(execfile, filename),
+            self._capture_output(pycep.interpreter.execfile, filename))
