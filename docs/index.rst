@@ -12,7 +12,7 @@ Contents:
    :maxdepth: 2
 
    references.rst
-   api.rst
+   pycep.rst
 
 Indices and tables
 ==================

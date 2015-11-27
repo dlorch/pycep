@@ -1,7 +1,11 @@
-=================
-API Documentation
+``pycep`` Package
 =================
 
 .. automodule:: pycep
    :members:
-   :show-inheritance:
+
+**Sub-Modules:**
+
+.. toctree::
+
+   pycep.parser
