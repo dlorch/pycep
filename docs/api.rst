@@ -1,6 +1,6 @@
-=======================
-PyCep API Documentation
-=======================
+=================
+API Documentation
+=================
 
 .. automodule:: pycep
    :members:
