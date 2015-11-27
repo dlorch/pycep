@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    references.rst
+   api.rst
 
 Indices and tables
 ==================
