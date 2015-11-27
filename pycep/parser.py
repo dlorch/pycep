@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 import parser
 
-def parse(source):
+def suite(source):
     """The parser takes a string containing the source code as an input and
     returns a parse tree.
     

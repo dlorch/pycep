@@ -1,11 +1,10 @@
-import __builtin__
+from __future__ import absolute_import
+import parser
 import pycep.analyzer
 
-def eval(expression):
-    node = pycep.analyzer.parse(expression)
-    # TODO: implement
-    return __builtin__.eval(compile(node, '<string>', mode='exec'))
-
 def execfile(filename):
-    program = "".join(open(filename).readlines())
-    return eval(program)
+    # TODO: this is a stub
+    source = open(filename).read()
+    ast = pycep.analyzer.parse(source)
+    code = parser.compileast(ast, filename=filename)
+    exec code
