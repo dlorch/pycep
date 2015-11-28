@@ -47,7 +47,7 @@ def suite(source):
             term -> factor;
             factor -> power;
             power -> atom;
-            atom -> "STRING \"Hello World\"
+            atom -> "STRING \"Hello World\""
         }
 
 
