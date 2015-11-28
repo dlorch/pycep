@@ -22,10 +22,30 @@ def suite(source):
         :alt: Parse Tree of Hello World Example
 
         digraph foo {
-            bgcolor = "transparent"
-            rankdir = LR
-            file_input -> stmt
-            stmt -> simple_stmt
+            bgcolor = "transparent";
+            node [shape=plaintext];
+            file_input -> stmt;
+            file_input -> NEWLINE;
+            file_input -> ENDMARKER;
+            stmt -> simple_stmt;
+            simple_stmt -> small_stmt;
+            simple_stmt -> NEWLINE;
+            small_stmt -> print_stmt;
+            print_stmt -> NAME;
+            print_stmt -> test;
+            test -> or_test;
+            or_test -> and_test;
+            and_test -> not_test;
+            not_test -> comparison;
+            comparison -> expr;
+            expr -> xor_expr;
+            xor_expr -> shift_expr;
+            shift_expr -> arith_expr;
+            arith_expr -> term;
+            term -> factor;
+            factor -> power;
+            power -> atom;
+            atom -> STRING;
         }
 
 
