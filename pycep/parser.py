@@ -33,7 +33,7 @@ def suite(source):
             simple_stmt -> small_stmt;
             simple_stmt -> "NEWLINE ";
             small_stmt -> print_stmt;
-            print_stmt -> "NAME \"print\"";
+            print_stmt -> "NAME \\"print\\"";
             print_stmt -> test;
             test -> or_test;
             or_test -> and_test;
@@ -47,7 +47,7 @@ def suite(source):
             term -> factor;
             factor -> power;
             power -> atom;
-            atom -> "STRING \"Hello World\""
+            atom -> "STRING \\"Hello World\\""
         }
 
 
