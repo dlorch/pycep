@@ -113,7 +113,9 @@ def _file_input(tokens):
     # appends it, thus emulate this behavior 
     result.append((token.NEWLINE, ''))
 
-    assert(tokens.next()[0] == token.ENDMARKER)
+    if tokens.next()[0] != token.ENDMARKER:
+        raise ParseError("Expecting ENDMARKER")
+
     result.append((token.ENDMARKER, ''))
 
     return result
