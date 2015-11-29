@@ -3,3 +3,4 @@
 
 .. automodule:: pycep.parser
    :members:
+   :private-members:
