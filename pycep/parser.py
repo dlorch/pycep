@@ -3,7 +3,9 @@ import pycep.tokenizer
 import parser
 from parser import ParserError
 import token
+import tokenize
 import symbol
+from itertools import tee
 from more_itertools import peekable
 from StringIO import StringIO
 
@@ -66,19 +68,19 @@ def suite(source, totuple=False):
         * Leaf Nodes: https://docs.python.org/2/library/token.html
     """
 
-    tokens = peekable(pycep.tokenizer.generate_tokens(StringIO(source).readline))
-    sequence = _file_input(tokens)
+    parser.tokens = peekable(pycep.tokenizer.generate_tokens(StringIO(source).readline))
+    result = _file_input()
     
-    # recursively convert list-of-lists to tuples-of-tuples
-    def listit(t):
-        return tuple(map(listit, t)) if isinstance(t, (list, tuple)) else t
-
     if totuple:
-        return listit(sequence)
-    else:
-        return parser.sequence2st(sequence)
+        # recursively convert list-of-lists to tuples-of-tuples
+        def listit(t):
+            return tuple(map(listit, t)) if isinstance(t, (list, tuple)) else t
 
-def _single_input(tokens):
+        return listit(result)
+    else:
+        return parser.sequence2st(result)
+
+def _single_input():
     """Parse a single input.
 
     ::
@@ -90,7 +92,7 @@ def _single_input(tokens):
     """
     raise NotImplementedError
 
-def _file_input(tokens):
+def _file_input():
     """Parse a module or sequence of command read from an input file.
 
     ::
@@ -102,25 +104,28 @@ def _file_input(tokens):
     """
     result = [symbol.file_input]
     
-    while not tokens.peek()[0] == token.ENDMARKER:
-        if tokens.peek()[0] == token.NEWLINE:
-            result.append((tokens.peek()[0], ''))
-            tokens.next()
-        else:
-            result.append(_stmt(tokens))
+    try:
+        while not parser.tokens.peek()[0] == token.ENDMARKER:
+            if parser.tokens.peek()[0] == token.NEWLINE:
+                result.append((parser.tokens.peek()[0], ''))
+                parser.tokens.next()
+            else:
+                result.append(_stmt())
+    except StopIteration:
+        pass # raise "Expecting ENDMARKER" in next block
 
     # Training NEWLINE not defined in grammar, but Python's parser always
     # appends it, thus emulate this behavior 
     result.append((token.NEWLINE, ''))
 
-    if tokens.next()[0] != token.ENDMARKER:
-        raise ParseError("Expecting ENDMARKER")
+    if parser.tokens.next()[0] != token.ENDMARKER:
+        raise ParserError("Expecting ENDMARKER")
 
     result.append((token.ENDMARKER, ''))
 
     return result
 
-def _eval_input(tokens):
+def _eval_input():
     """Parse an evaluation input.
 
     ::
@@ -132,7 +137,7 @@ def _eval_input(tokens):
     """
     raise NotImplementedError
 
-def _decorator(tokens):
+def _decorator():
     """Parse a decorator.
 
     ::
@@ -144,7 +149,7 @@ def _decorator(tokens):
     """
     raise NotImplementedError
 
-def _decorators(tokens):
+def _decorators():
     """Parse a list of decorators.
 
     ::
@@ -156,7 +161,7 @@ def _decorators(tokens):
     """
     raise NotImplementedError
 
-def _decorated(tokens):
+def _decorated():
     """Parse a decorated statement.
 
     ::
@@ -168,7 +173,7 @@ def _decorated(tokens):
     """
     raise NotImplementedError
 
-def _funcdef(tokens):
+def _funcdef():
     """Parse a function definition.
 
     ::
@@ -178,9 +183,30 @@ def _funcdef(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.funcdef]
+    
+    if not (parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "def"):
+        raise ParserError("Expecting `def'")
+    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+    parser.tokens.next()
+        
+    if not (parser.tokens.peek()[0] == token.NAME):
+        raise ParserError("Expecting function name")
+    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+    parser.tokens.next()
 
-def _parameters(tokens):
+    result.append(_parameters()) 
+
+    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ':'):
+        raise ParserError("Expecting `:'")
+    result.append((token.COLON, ':'))
+    parser.tokens.next()
+    
+    result.append(_suite())
+    
+    return result
+
+def _parameters():
     """Parse a parameter list.
 
     ::
@@ -190,9 +216,26 @@ def _parameters(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.parameters]
 
-def _varargslist(tokens):
+    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == '('):
+        raise ParserError("Expecting `('")
+    result.append((token.LPAR, '('))
+    parser.tokens.next()
+
+    try:
+        result.append(_varargslist())
+    except ParserError:
+        pass # varargslist is optional
+    
+    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ')'):
+        raise ParserError("Expecting `)'")
+    result.append((token.RPAR, ')'))
+    parser.tokens.next()
+
+    return result
+
+def _varargslist():
     """Parse a variable argument list.
 
     ::
@@ -204,9 +247,14 @@ def _varargslist(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.varargslist]
+    result.append(_fpdef())
 
-def _fpdef(tokens):
+    # TODO
+    
+    return result
+
+def _fpdef():
     """Parse function parameter definition.
 
     ::
@@ -216,9 +264,15 @@ def _fpdef(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.fpdef]
+    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+    parser.tokens.next()
+    
+    # TODO
+    
+    return result
 
-def _fplist(tokens):
+def _fplist():
     """Parse a function parameter list
 
     ::
@@ -230,7 +284,7 @@ def _fplist(tokens):
     """
     raise NotImplementedError
 
-def _stmt(tokens):
+def _stmt():
     """Parse a statement.
 
     ::
@@ -242,17 +296,18 @@ def _stmt(tokens):
     """
     result = [symbol.stmt]
 
-    if (tokens.peek()[0] == token.NAME and tokens.peek()[1] in \
+    # TODO: replace this by "choice" between simple_stmt and compound_stmt
+    if (parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] in \
         ["if", "while", "try", "with", "def", "class"]):
-        result.append(_compound_stmt(tokens))
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "@":
-        result.append(_compound_stmt(tokens))
+        result.append(_compound_stmt())
+    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "@":
+        result.append(_compound_stmt())
     else:
-        result.append(_simple_stmt(tokens))
+        result.append(_simple_stmt())
 
     return result
 
-def _simple_stmt(tokens):
+def _simple_stmt():
     """Parse a simple statement.
 
     ::
@@ -263,27 +318,32 @@ def _simple_stmt(tokens):
         list: A parse tree element
     """
     result = [symbol.simple_stmt]
-    
-    result.append(_small_stmt(tokens))
-    
-    while tokens.peek()[0] == token.SEMI and tokens.peek()[1] == ";":
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
-        result.append(_small_stmt(tokens))
+
+    result.append(_small_stmt())
+
+    while parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ";":
+        result.append((token.SEMI, ";"))
+        parser.tokens.next()
+        result.append(_small_stmt())
         
-    if tokens.peek()[0] == token.SEMI and tokens.peek()[1] == ";":
-        tokens.next()
-    
+    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ";":
+        result.append((token.SEMI, ";"))
+        parser.tokens.next()
+
     # trailing NEWLINE is mandatory according to grammar, but in Python's parser
     # it is optional, thus imitate this behavior
-    if tokens.peek()[0] == token.NEWLINE:
-        tokens.next()
-        
+    if parser.tokens.peek()[0] == token.NEWLINE:
+        parser.tokens.next()
+    
     result.append((token.NEWLINE, ''))
+
+    # TODO hack
+    if parser.tokens.peek()[0] == tokenize.NL:
+        parser.tokens.next()
 
     return result
 
-def _small_stmt(tokens):
+def _small_stmt():
     """Parse a small statement.
 
     ::
@@ -295,27 +355,36 @@ def _small_stmt(tokens):
         list: A parse tree element
     """
     result = [symbol.small_stmt]
-    
-    choices = [_print_stmt] # TODO
+
+    # Remember the last "good" position of the tokens generator
+    parser.tokens, last_good_tokens = tee(parser.tokens)
+    parser.tokens = peekable(parser.tokens)
+
+    choices = [_expr_stmt, _print_stmt, _del_stmt, _pass_stmt, _flow_stmt,
+        _import_stmt, _global_stmt, _exec_stmt, _assert_stmt]
     subtree = None
-    
+
+    # Recursively descend a path. End of recursion is indicated by a ParserError
+    # from the child path. When a child path has failed, "roll back" the tokens-
+    # generator to the last good position
     for choice in choices:
         try:
-            subtree = choice(tokens)
+            subtree = choice()
             break # break this loop if choice matches
         except ParserError:
-            pass # try next choice
+            # restore last good position
+            parser.tokens = peekable(last_good_tokens)
 
     if not subtree:
-        raise ParserError("Expecting (expr_stmt | print_stmt  | del_stmt | " \
-            "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | " \
+        raise ParserError("Expecting (expr_stmt | print_stmt  | del_stmt | "
+            "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
             "assert_stmt")
             
     result.append(subtree)
 
     return result
 
-def _expr_stmt(tokens):
+def _expr_stmt():
     """Parse an expr stmt.
 
     ::
@@ -326,9 +395,20 @@ def _expr_stmt(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.expr_stmt]
+    
+    result.append(_testlist())
+    
+    while parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "=":
+        result.append((token.EQUAL, "="))
+        parser.tokens.next()
+        result.append(_testlist())
 
-def _augassign(tokens):
+    # TODO augassign / yield_expr
+    
+    return result
+
+def _augassign():
     """Parse an augassign statement.
 
     ::
@@ -341,7 +421,7 @@ def _augassign(tokens):
     """
     raise NotImplementedError
 
-def _print_stmt(tokens):
+def _print_stmt():
     """Parse a print statement.
 
     ::
@@ -353,23 +433,23 @@ def _print_stmt(tokens):
         list: A parse tree element
     """
     result = [symbol.print_stmt]
-    
-    if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "print":
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
+
+    if parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "print":
+        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+        parser.tokens.next()
         
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ">>":
+        if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ">>":
             raise NotImplementedError
         else:
-            result.append(_test(tokens))
+            result.append(_test())
         
         # TODO: test is optional
     else:
         raise parser.ParserError
-        
+
     return result
 
-def _del_stmt(tokens):
+def _del_stmt():
     """Parse a delete statement.
 
     ::
@@ -382,7 +462,7 @@ def _del_stmt(tokens):
     raise NotImplementedError
 
 
-def _pass_stmt(tokens):
+def _pass_stmt():
     """Parse a pass statement.
 
     ::
@@ -394,7 +474,7 @@ def _pass_stmt(tokens):
     """
     raise NotImplementedError
 
-def _flow_stmt(tokens):
+def _flow_stmt():
     """Parse a flow statement.
 
     ::
@@ -406,7 +486,7 @@ def _flow_stmt(tokens):
     """
     raise NotImplementedError
 
-def _break_stmt(tokens):
+def _break_stmt():
     """Parse a break statement.
 
     ::
@@ -418,7 +498,7 @@ def _break_stmt(tokens):
     """
     raise NotImplementedError
 
-def _continue_stmt(tokens):
+def _continue_stmt():
     """Parse a continue statement.
 
     ::
@@ -430,7 +510,7 @@ def _continue_stmt(tokens):
     """
     raise NotImplementedError
 
-def _return_stmt(tokens):
+def _return_stmt():
     """Parse a return statement.
 
     ::
@@ -442,7 +522,7 @@ def _return_stmt(tokens):
     """
     raise NotImplementedError
 
-def _yield_stmt(tokens):
+def _yield_stmt():
     """Parse a yield statement.
 
     ::
@@ -454,7 +534,7 @@ def _yield_stmt(tokens):
     """
     raise NotImplementedError
 
-def _raise_stmt(tokens):
+def _raise_stmt():
     """Parse a raise statement.
 
     ::
@@ -466,7 +546,7 @@ def _raise_stmt(tokens):
     """
     raise NotImplementedError
 
-def _import_stmt(tokens):
+def _import_stmt():
     """Parse an import statement.
 
     ::
@@ -478,7 +558,7 @@ def _import_stmt(tokens):
     """
     raise NotImplementedError
 
-def _import_name(tokens):
+def _import_name():
     """Parse an import name.
 
     ::
@@ -490,7 +570,7 @@ def _import_name(tokens):
     """
     raise NotImplementedError
 
-def _import_from(tokens):
+def _import_from():
     """Parse an import from.
 
     ::
@@ -503,7 +583,7 @@ def _import_from(tokens):
     """
     raise NotImplementedError
 
-def _import_as_name(tokens):
+def _import_as_name():
     """Parse an import as names.
 
     ::
@@ -515,7 +595,7 @@ def _import_as_name(tokens):
     """
     raise NotImplementedError
 
-def _dotted_as_name(tokens):
+def _dotted_as_name():
     """Parse a dotted as name.
 
     ::
@@ -527,7 +607,7 @@ def _dotted_as_name(tokens):
     """
     raise NotImplementedError
 
-def _import_as_names(tokens):
+def _import_as_names():
     """Parse import as names.
 
     ::
@@ -539,7 +619,7 @@ def _import_as_names(tokens):
     """
     raise NotImplementedError
 
-def _dotted_as_names(tokens):
+def _dotted_as_names():
     """Parse dotted as names.
 
     ::
@@ -551,7 +631,7 @@ def _dotted_as_names(tokens):
     """
     raise NotImplementedError
 
-def _dotted_name(tokens):
+def _dotted_name():
     """Parse a dotted name.
 
     ::
@@ -563,7 +643,7 @@ def _dotted_name(tokens):
     """
     raise NotImplementedError
 
-def _global_stmt(tokens):
+def _global_stmt():
     """Parse a global statement.
 
     ::
@@ -575,7 +655,7 @@ def _global_stmt(tokens):
     """
     raise NotImplementedError
 
-def _exec_stmt(tokens):
+def _exec_stmt():
     """Parse an exec statement.
 
     ::
@@ -587,7 +667,7 @@ def _exec_stmt(tokens):
     """
     raise NotImplementedError
 
-def _assert_stmt(tokens):
+def _assert_stmt():
     """Parse an assert statement.
 
     ::
@@ -599,7 +679,7 @@ def _assert_stmt(tokens):
     """
     raise NotImplementedError
 
-def _compound_stmt(tokens):
+def _compound_stmt():
     """Parse a compound statement.
 
     ::
@@ -609,9 +689,35 @@ def _compound_stmt(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.compound_stmt]
+  
+    # Remember the last "good" position of the tokens generator
+    parser.tokens, last_good_tokens = tee(parser.tokens)
+    parser.tokens = peekable(parser.tokens)
 
-def _if_stmt(tokens):
+    choices = [_while_stmt, _funcdef] # TODO
+    subtree = None
+
+    # Recursively descend a path. End of recursion is indicated by a ParserError
+    # from the child path. When a child path has failed, "roll back" the tokens-
+    # generator to the last good position
+    for choice in choices:
+        try:
+            subtree = choice()
+            break # break this loop if choice matches
+        except ParserError:
+            # restore last good position
+            parser.tokens = peekable(last_good_tokens)
+
+    if not subtree:
+        raise ParserError("Expecting: if_stmt | while_stmt | for_stmt | "
+            "try_stmt | with_stmt | funcdef | classdef | decorated")
+    
+    result.append(subtree)
+
+    return result
+
+def _if_stmt():
     """Parse and if statement.
 
     ::
@@ -623,7 +729,7 @@ def _if_stmt(tokens):
     """
     raise NotImplementedError
 
-def _while_stmt(tokens):
+def _while_stmt():
     """Parse a while statement.
 
     ::
@@ -633,9 +739,33 @@ def _while_stmt(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.while_stmt]
+    
+    if not (parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "while"):
+        raise ParserError("Expecting `while'")
+    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+    parser.tokens.next()
 
-def _for_stmt(tokens):
+    result.append(_test())
+
+    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ":"):
+        raise ParserError("Expecting `:'")
+    result.append((token.COLON, ":"))
+    parser.tokens.next()
+
+    result.append(_suite())
+
+    if parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "else":
+        parser.tokens.next()
+        
+        if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ":"):
+            raise ParserError("Expecting `:'")
+            
+        result.append(_suite())
+
+    return result
+
+def _for_stmt():
     """Parse a for statement.
 
     ::
@@ -647,7 +777,7 @@ def _for_stmt(tokens):
     """
     raise NotImplementedError
 
-def _try_stmt(tokens):
+def _try_stmt():
     """Parse a try statement.
 
     ::
@@ -663,7 +793,7 @@ def _try_stmt(tokens):
     """
     raise NotImplementedError
 
-def _with_stmt(tokens):
+def _with_stmt():
     """Parse a with statement.
 
     ::
@@ -675,7 +805,7 @@ def _with_stmt(tokens):
     """
     raise NotImplementedError
 
-def _with_item(tokens):
+def _with_item():
     """Parse a with item.
 
     ::
@@ -687,7 +817,7 @@ def _with_item(tokens):
     """
     raise NotImplementedError
 
-def _except_clause(tokens):
+def _except_clause():
     """Parse an except clause.
 
     ::
@@ -699,7 +829,7 @@ def _except_clause(tokens):
     """
     raise NotImplementedError
 
-def _suite(tokens):
+def _suite():
     """Parse a suite.
 
     ::
@@ -709,9 +839,34 @@ def _suite(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.suite]
 
-def _testlist_safe(tokens):
+    if parser.tokens.peek()[0] == token.NEWLINE:
+        result.append((token.NEWLINE, ""))
+        parser.tokens.next()
+
+        if parser.tokens.peek()[0] != token.INDENT:
+            raise ParserError("Expecting INDENT")
+        result.append((token.INDENT, ''))
+        parser.tokens.next()
+        
+        try:
+            while parser.tokens.peek()[0] != token.DEDENT:
+                result.append(_stmt())
+        except StopIteration:
+            pass # raise "Expecting DEDENT" in next block
+
+        if parser.tokens.peek()[0] != token.DEDENT:
+            raise ParserError("Expecting DEDENT")
+        result.append((token.DEDENT, ''))
+
+        parser.tokens.next()
+    else:
+        raise NotImplementedError
+
+    return result
+
+def _testlist_safe():
     """Parse a testlist safe.
 
     ::
@@ -723,7 +878,7 @@ def _testlist_safe(tokens):
     """
     raise NotImplementedError
 
-def _old_test(tokens):
+def _old_test():
     """Parse an old test.
 
     ::
@@ -735,7 +890,7 @@ def _old_test(tokens):
     """
     raise NotImplementedError
 
-def _old_lambdef(tokens):
+def _old_lambdef():
     """Parse an old lambda definition.
 
     ::
@@ -747,7 +902,7 @@ def _old_lambdef(tokens):
     """
     raise NotImplementedError
 
-def _test(tokens):
+def _test():
     """Parse a test statement.
 
     ::
@@ -758,13 +913,13 @@ def _test(tokens):
         list: A parse tree element
     """
     result = [symbol.test]
-    result.append(_or_test(tokens))
+    result.append(_or_test())
     
     # TODO if/lambdef
     
     return result
 
-def _or_test(tokens):
+def _or_test():
     """Parse an or_test statement
 
     ::
@@ -775,13 +930,13 @@ def _or_test(tokens):
         list: A parse tree element
     """
     result = [symbol.or_test]
-    result.append(_and_test(tokens))
+    result.append(_and_test())
 
     # TODO or and_test
     
     return result
 
-def _and_test(tokens):
+def _and_test():
     """Parse an and test statement.
 
     ::
@@ -792,13 +947,13 @@ def _and_test(tokens):
         list: A parse tree element
     """
     result = [symbol.and_test]
-    result.append(_not_test(tokens))
+    result.append(_not_test())
     
     # TODO and not_test
     
     return result
 
-def _not_test(tokens):
+def _not_test():
     """Parse a not test statement.
 
     ::
@@ -809,13 +964,13 @@ def _not_test(tokens):
         list: A parse tree element
     """
     result = [symbol.not_test]
-    result.append(_comparison(tokens))
+    result.append(_comparison())
 
     # TODO: not not_test
     
     return result
 
-def _comparison(tokens):
+def _comparison():
     """Parse a comparison.
 
     ::
@@ -826,13 +981,32 @@ def _comparison(tokens):
         list: A parse tree element
     """
     result = [symbol.comparison]
-    result.append(_expr(tokens))
     
-    # TODO: comp_op expr
-    
+    result.append(_expr())
+
+    # Remember the last "good" position of the tokens generator
+    parser.tokens, last_good_tokens = tee(parser.tokens)
+    parser.tokens = peekable(parser.tokens)
+
+    # Recursively descend a path. End of recursion is indicated by a ParserError
+    # from the child path. When a child path has failed, "roll back" the tokens-
+    # generator to the last good position
+    try:
+        comp_op = _comp_op()
+        expr = _expr()
+
+        # both paths were successful -> add to result
+        result.append(comp_op)
+        result.append(expr)
+    except ParserError:
+        # restore last good position
+        parser.tokens = peekable(last_good_tokens)
+
+    # TODO: implement loop
+
     return result
 
-def _comp_op(tokens):
+def _comp_op():
     """Parse a compare operator statement.
 
     ::
@@ -842,9 +1016,59 @@ def _comp_op(tokens):
     Return:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.comp_op]
 
-def _expr(tokens):
+    parser_error = ParserError("Expecting: '<'|'>'|'=='|'>='|'<='|'<>'|'!='"
+        "|'in'|'not' 'in'|'is'|'is' 'not'")
+
+    if parser.tokens.peek()[0] == token.OP:
+        if parser.tokens.peek()[1] == "<":
+            result.append((token.LESS, "<"))
+            parser.tokens.next()
+        elif parser.tokens.peek()[1] == ">":
+            result.append((token.GREATER, ">"))
+            parser.tokens.next()
+        elif parser.tokens.peek()[1] == "==":
+            result.append((token.EQEQUAL, "=="))
+            parser.tokens.next()
+        elif parser.tokens.peek()[1] == ">=":
+            result.append((token.GREATEREQUAL, ">="))
+            parser.tokens.next()
+        elif parser.tokens.peek()[1] == "<=":
+            result.append((token.LESSEQUAL, "<="))
+            parser.tokens.next()
+        elif parser.tokens.peek()[1] == "<>":
+            result.append((token.NOTEQUAL, "<>"))
+            parser.tokens.next()
+        elif parser.tokens.peek()[1] == "!=":
+            result.append((token.NOTEQUAL, "!="))
+            parser.tokens.next()
+        else:
+            raise parser_error
+    elif parser.tokens.peek()[0] == token.NAME:
+        if parser.tokens.peek()[1] == "in":
+            result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+            parser.tokens.next()
+        elif parser.tokens.peek()[1] == "not":
+            result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+            parser.tokens.next()
+            if parser.tokens.peek()[0] == "in":
+                result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+                parser.tokens.next()
+            else:
+                raise parser_error
+        elif parser.tokens.peek()[1] == "is":
+            result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+            parser.tokens.next()
+            if parser.tokens.peek()[0] == "not":
+                result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+                parser.tokens.next()
+    else:
+        raise parser_error
+
+    return result
+
+def _expr():
     """Parse an expression statement.
 
     ::
@@ -855,13 +1079,13 @@ def _expr(tokens):
         list: A parse tree element
     """
     result = [symbol.expr]
-    result.append(_xor_expr(tokens))
+    result.append(_xor_expr())
     
     # TODO | xor_expr
     
     return result
 
-def _xor_expr(tokens):
+def _xor_expr():
     """Parse an xor expression statement.
 
     ::
@@ -872,13 +1096,13 @@ def _xor_expr(tokens):
         list: A parse tree element
     """
     result = [symbol.xor_expr]
-    result.append(_and_expr(tokens))
+    result.append(_and_expr())
 
     # TODO ^ and_exr
     
     return result
 
-def _and_expr(tokens):
+def _and_expr():
     """Parse an and expression statement.
 
     ::
@@ -889,13 +1113,13 @@ def _and_expr(tokens):
         list: A parse tree element
     """
     result = [symbol.and_expr]
-    result.append(_shift_expr(tokens))
+    result.append(_shift_expr())
     
     # TODO
     
     return result
 
-def _shift_expr(tokens):
+def _shift_expr():
     """Parse a shift_expr statement
 
     ::
@@ -906,13 +1130,13 @@ def _shift_expr(tokens):
         list: A parse tree element
     """
     result = [symbol.shift_expr]
-    result.append(_arith_expr(tokens))
+    result.append(_arith_expr())
     
     # TODO
     
     return result
 
-def _arith_expr(tokens):
+def _arith_expr():
     """Parse an arithmetic expression statement.
 
     ::
@@ -923,13 +1147,22 @@ def _arith_expr(tokens):
         list: A parse tree element
     """
     result = [symbol.arith_expr]
-    result.append(_term(tokens))
+    result.append(_term())
     
-    # TODO
+    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "+":
+        result.append((token.PLUS, "+"))
+        parser.tokens.next()
+        result.append(_term())
+    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "-":
+        result.append((token.MINUS, "+"))
+        parser.tokens.next()
+        result.append(_term())
     
+    # TODO: repetition
+
     return result
 
-def _term(tokens):
+def _term():
     """Parse a term statement.
 
     ::
@@ -940,13 +1173,13 @@ def _term(tokens):
         list: A parse tree element
     """
     result = [symbol.term]
-    result.append(_factor(tokens))
+    result.append(_factor())
     
     # TODO
     
     return result
     
-def _factor(tokens):
+def _factor():
     """Parse a factor statement.
 
     ::
@@ -960,10 +1193,10 @@ def _factor(tokens):
     
     # TODO
     
-    result.append(_power(tokens))
+    result.append(_power())
     return result
     
-def _power(tokens):
+def _power():
     """Parse a power statement.
 
     ::
@@ -974,13 +1207,16 @@ def _power(tokens):
         list: A parse tree element
     """
     result = [symbol.power]
-    result.append(_atom(tokens))
+    result.append(_atom())
+
+    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "(":
+        result.append(_trailer())
     
-    # TODO
+    # TODO factor, multiple trailers
     
     return result
 
-def _atom(tokens):
+def _atom():
     """Parse an atom statement.
 
     ::
@@ -996,14 +1232,48 @@ def _atom(tokens):
     """
     result = [symbol.atom]
     
-    # TODO
-    
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
+    keywords = ["and", "as", "assert", "break", "class", "continue", "def",
+        "del", "elif", "else", "except", "exec", "finally", "for", "from",
+        "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
+        "print", "raise", "return", "try", "while", "with", "yield"]
+
+    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "(":
+        result.append((token.LPAR, "("))
+        parser.tokens.next()
+        
+        # TODO yield_expr
+        result.append(_testlist_comp())
+        
+        if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "("):
+            result.append((token.RPAR, ")"))
+            parser.tokens.next()
+    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "[":
+        raise NotImplementedError
+    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "{":
+        raise NotImplementedError
+    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "`":
+        raise NotImplementedError
+    elif parser.tokens.peek()[0] == token.NUMBER:
+        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+        parser.tokens.next()
+    elif parser.tokens.peek()[0] == token.NAME:
+        if parser.tokens.peek()[1] in keywords:
+            raise ParserError # keywords cannot appear here
+        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+        parser.tokens.next()
+    elif parser.tokens.peek()[0] == token.STRING:
+        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
+        parser.tokens.next()
+    else:
+        raise ParserError("Expecting: ('(' [yield_expr|testlist_comp] ')' |\n"
+            "'[' [listmaker] ']' |\n"
+            "'{' [dictorsetmaker] '}' |\n"
+            "'`' testlist1 '`' |\n"
+            "NAME | NUMBER | STRING+)")
+        
     return result
     
-def _listmaker(tokens):
+def _listmaker():
     """Parse a listmaker statement.
 
     ::
@@ -1015,7 +1285,7 @@ def _listmaker(tokens):
     """
     raise NotImplementedError
 
-def _testlist_comp(tokens):
+def _testlist_comp():
     """Parse a testlist comp statement.
 
     ::
@@ -1025,9 +1295,15 @@ def _testlist_comp(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.test]
+    
+    result.append(_test())
+    
+    # TODO
+    
+    return result
 
-def _lambdef(tokens):
+def _lambdef():
     """Parse a lambda definition.
 
     ::
@@ -1039,7 +1315,7 @@ def _lambdef(tokens):
     """
     raise NotImplementedError
 
-def _trailer(tokens):
+def _trailer():
     """Parse a trailer.
 
     ::
@@ -1049,9 +1325,25 @@ def _trailer(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.trailer]
 
-def _subscriptlist(tokens):
+    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "(":
+        result.append((token.LPAR, "("))
+        parser.tokens.next()
+        
+        # TODO: optional
+        result.append(_arglist())
+        
+        if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ")"):
+            raise ParserError("Expecting `)'")
+        result.append((token.RPAR, ")"))
+        parser.tokens.next()
+    else:
+        raise NotImplementedError
+    
+    return result
+
+def _subscriptlist():
     """Parse a subscriptlist.
 
     ::
@@ -1063,7 +1355,7 @@ def _subscriptlist(tokens):
     """
     raise NotImplementedError
 
-def _subscript(tokens):
+def _subscript():
     """Parse a subscript.
 
     ::
@@ -1075,7 +1367,7 @@ def _subscript(tokens):
     """
     raise NotImplementedError
 
-def _sliceop(tokens):
+def _sliceop():
     """Parse a slice operation.
 
     ::
@@ -1087,7 +1379,7 @@ def _sliceop(tokens):
     """
     raise NotImplementedError
 
-def _exprlist(tokens):
+def _exprlist():
     """Parse an expression list.
 
     ::
@@ -1099,7 +1391,7 @@ def _exprlist(tokens):
     """
     raise NotImplementedError
 
-def _testlist(tokens):
+def _testlist():
     """Parse a testlist.
 
     ::
@@ -1109,9 +1401,21 @@ def _testlist(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.testlist]
+    
+    result.append(_test())
+    
+    while parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ",":
+        result.append((token.COMMA, ","))
+        parser.tokens.next()
+        result.append(_test())
 
-def _dictorsetmaker(tokens):
+    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ",":
+        parser.tokens.next()
+    
+    return result
+
+def _dictorsetmaker():
     """Parse a dict or set maker statement.
 
     ::
@@ -1124,7 +1428,7 @@ def _dictorsetmaker(tokens):
     """
     raise NotImplementedError
 
-def _classdef(tokens):
+def _classdef():
     """Parse a class definition.
 
     ::
@@ -1136,7 +1440,7 @@ def _classdef(tokens):
     """
     raise NotImplementedError
 
-def _arglist(tokens):
+def _arglist():
     """Parse an argument list.
 
     ::
@@ -1148,9 +1452,15 @@ def _arglist(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.arglist]
+    
+    result.append(_argument())
+    
+    # TODO
 
-def _argument(tokens):
+    return result
+
+def _argument():
     """Parse an argument.
 
     ::
@@ -1160,9 +1470,15 @@ def _argument(tokens):
     Returns:
         list: A parse tree element
     """
-    raise NotImplementedError
+    result = [symbol.argument]
+    
+    result.append(_test())
+    
+    # TODO
+    
+    return result
 
-def _list_iter(tokens):
+def _list_iter():
     """Parse a list iteration.
 
     ::
@@ -1174,7 +1490,7 @@ def _list_iter(tokens):
     """
     raise NotImplementedError
 
-def _list_for(tokens):
+def _list_for():
     """Parse a list for.
 
     ::
@@ -1186,7 +1502,7 @@ def _list_for(tokens):
     """
     raise NotImplementedError
 
-def _list_if(tokens):
+def _list_if():
     """Parse a list if.
 
     ::
@@ -1198,7 +1514,7 @@ def _list_if(tokens):
     """
     raise NotImplementedError
 
-def _comp_iter(tokens):
+def _comp_iter():
     """Parse a comp iter.
 
     ::
@@ -1210,7 +1526,7 @@ def _comp_iter(tokens):
     """
     raise NotImplementedError
 
-def _comp_for(tokens):
+def _comp_for():
     """Parse a comp for.
 
     ::
@@ -1222,7 +1538,7 @@ def _comp_for(tokens):
     """
     raise NotImplementedError
 
-def _comp_if(tokens):
+def _comp_if():
     """Parse a comp if.
 
     ::
@@ -1234,7 +1550,7 @@ def _comp_if(tokens):
     """
     raise NotImplementedError
 
-def _testlist1(tokens):
+def _testlist1():
     """Parse a testlist1.
 
     ::
@@ -1246,7 +1562,7 @@ def _testlist1(tokens):
     """
     raise NotImplementedError
 
-def _encoding_decl(tokens):
+def _encoding_decl():
     """Parse an encoding declaration.
 
     ::
@@ -1258,7 +1574,7 @@ def _encoding_decl(tokens):
     """
     raise NotImplementedError
 
-def _yield_expr(tokens):
+def _yield_expr():
     """Parse a yield expression.
 
     ::
