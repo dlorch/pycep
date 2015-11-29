@@ -7,7 +7,7 @@ import symbol
 from more_itertools import peekable
 from StringIO import StringIO
 
-def suite(source):
+def suite(source, totuple=False):
     """The parser takes a string containing the source code as an input and
     returns a parse tree.
 
@@ -18,6 +18,7 @@ def suite(source):
 
     Args:
         source (string): Source code
+        totuple (boolean): For testing: Return internal parser data structure, don't convert to ``parser.st`` object
         
     Returns:
         parser.st: Parse Tree
@@ -67,8 +68,15 @@ def suite(source):
 
     tokens = peekable(pycep.tokenizer.generate_tokens(StringIO(source).readline))
     sequence = _file_input(tokens)
-    syntax_tree = parser.sequence2st(sequence)
-    return syntax_tree
+    
+    # recursively convert list-of-lists to tuples-of-tuples
+    def listit(t):
+        return tuple(map(listit, t)) if isinstance(t, (list, tuple)) else t
+
+    if totuple:
+        return listit(sequence)
+    else:
+        return parser.sequence2st(sequence)
 
 def _single_input(tokens):
     """Parse a single input.
@@ -102,7 +110,7 @@ def _file_input(tokens):
             result.append(_stmt(tokens))
 
     # Training NEWLINE not defined in grammar, but Python's parser always
-    # appends it, thus emulate this behavior
+    # appends it, thus emulate this behavior 
     result.append((token.NEWLINE, ''))
 
     assert(tokens.next()[0] == token.ENDMARKER)
