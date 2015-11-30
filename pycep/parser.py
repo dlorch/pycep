@@ -5,7 +5,6 @@ from parser import ParserError
 import token
 import tokenize
 import symbol
-from itertools import tee
 from more_itertools import peekable
 from StringIO import StringIO
 
@@ -20,7 +19,7 @@ def suite(source, totuple=False):
 
     Args:
         source (string): Source code
-        totuple (boolean): For testing: Return internal parser data structure, don't convert to ``parser.st`` object
+        totuple (boolean): (for testing) Return internal parser data structure, don't convert to ``parser.st`` object
         
     Returns:
         parser.st: Parse Tree
@@ -68,9 +67,9 @@ def suite(source, totuple=False):
         * Leaf Nodes: https://docs.python.org/2/library/token.html
     """
 
-    parser.tokens = peekable(pycep.tokenizer.generate_tokens(StringIO(source).readline))
-    result = _file_input()
-    
+    tokens = TokenIterator(pycep.tokenizer.generate_tokens(StringIO(source).readline))
+    result = _file_input(tokens)
+
     if totuple:
         # recursively convert list-of-lists to tuples-of-tuples
         def listit(t):
@@ -80,7 +79,7 @@ def suite(source, totuple=False):
     else:
         return parser.sequence2st(result)
 
-def _single_input():
+def _single_input(tokens):
     """Parse a single input.
 
     ::
@@ -92,7 +91,7 @@ def _single_input():
     """
     raise NotImplementedError
 
-def _file_input():
+def _file_input(tokens):
     """Parse a module or sequence of command read from an input file.
 
     ::
@@ -105,12 +104,12 @@ def _file_input():
     result = [symbol.file_input]
     
     try:
-        while not parser.tokens.peek()[0] == token.ENDMARKER:
-            if parser.tokens.peek()[0] == token.NEWLINE:
-                result.append((parser.tokens.peek()[0], ''))
-                parser.tokens.next()
+        while not tokens.peek()[0] == token.ENDMARKER:
+            if tokens.peek()[0] == token.NEWLINE:
+                result.append((tokens.peek()[0], ''))
+                tokens.next()
             else:
-                result.append(_stmt())
+                result.append(_stmt(tokens))
     except StopIteration:
         pass # raise "Expecting ENDMARKER" in next block
 
@@ -118,14 +117,14 @@ def _file_input():
     # appends it, thus emulate this behavior 
     result.append((token.NEWLINE, ''))
 
-    if parser.tokens.next()[0] != token.ENDMARKER:
+    if tokens.next()[0] != token.ENDMARKER:
         raise ParserError("Expecting ENDMARKER")
 
     result.append((token.ENDMARKER, ''))
 
     return result
 
-def _eval_input():
+def _eval_input(tokens):
     """Parse an evaluation input.
 
     ::
@@ -137,7 +136,7 @@ def _eval_input():
     """
     raise NotImplementedError
 
-def _decorator():
+def _decorator(tokens):
     """Parse a decorator.
 
     ::
@@ -149,7 +148,7 @@ def _decorator():
     """
     raise NotImplementedError
 
-def _decorators():
+def _decorators(tokens):
     """Parse a list of decorators.
 
     ::
@@ -161,7 +160,7 @@ def _decorators():
     """
     raise NotImplementedError
 
-def _decorated():
+def _decorated(tokens):
     """Parse a decorated statement.
 
     ::
@@ -173,7 +172,7 @@ def _decorated():
     """
     raise NotImplementedError
 
-def _funcdef():
+def _funcdef(tokens):
     """Parse a function definition.
 
     ::
@@ -185,28 +184,28 @@ def _funcdef():
     """
     result = [symbol.funcdef]
     
-    if not (parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "def"):
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "def"):
         raise ParserError("Expecting `def'")
-    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-    parser.tokens.next()
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
         
-    if not (parser.tokens.peek()[0] == token.NAME):
+    if not (tokens.peek()[0] == token.NAME):
         raise ParserError("Expecting function name")
-    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-    parser.tokens.next()
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
 
-    result.append(_parameters()) 
+    result.append(_parameters(tokens)) 
 
-    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ':'):
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ':'):
         raise ParserError("Expecting `:'")
     result.append((token.COLON, ':'))
-    parser.tokens.next()
+    tokens.next()
     
-    result.append(_suite())
+    result.append(_suite(tokens))
     
     return result
 
-def _parameters():
+def _parameters(tokens):
     """Parse a parameter list.
 
     ::
@@ -218,24 +217,24 @@ def _parameters():
     """
     result = [symbol.parameters]
 
-    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == '('):
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == '('):
         raise ParserError("Expecting `('")
     result.append((token.LPAR, '('))
-    parser.tokens.next()
+    tokens.next()
 
     try:
-        result.append(_varargslist())
+        result.append(_varargslist(tokens))
     except ParserError:
         pass # varargslist is optional
     
-    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ')'):
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ')'):
         raise ParserError("Expecting `)'")
     result.append((token.RPAR, ')'))
-    parser.tokens.next()
+    tokens.next()
 
     return result
 
-def _varargslist():
+def _varargslist(tokens):
     """Parse a variable argument list.
 
     ::
@@ -248,13 +247,13 @@ def _varargslist():
         list: A parse tree element
     """
     result = [symbol.varargslist]
-    result.append(_fpdef())
+    result.append(_fpdef(tokens))
 
     # TODO
     
     return result
 
-def _fpdef():
+def _fpdef(tokens):
     """Parse function parameter definition.
 
     ::
@@ -265,14 +264,14 @@ def _fpdef():
         list: A parse tree element
     """
     result = [symbol.fpdef]
-    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-    parser.tokens.next()
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
     
     # TODO
     
     return result
 
-def _fplist():
+def _fplist(tokens):
     """Parse a function parameter list
 
     ::
@@ -284,7 +283,7 @@ def _fplist():
     """
     raise NotImplementedError
 
-def _stmt():
+def _stmt(tokens):
     """Parse a statement.
 
     ::
@@ -297,17 +296,17 @@ def _stmt():
     result = [symbol.stmt]
 
     # TODO: replace this by "choice" between simple_stmt and compound_stmt
-    if (parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] in \
+    if (tokens.peek()[0] == token.NAME and tokens.peek()[1] in \
         ["if", "while", "try", "with", "def", "class"]):
-        result.append(_compound_stmt())
-    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "@":
-        result.append(_compound_stmt())
+        result.append(_compound_stmt(tokens))
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "@":
+        result.append(_compound_stmt(tokens))
     else:
-        result.append(_simple_stmt())
+        result.append(_simple_stmt(tokens))
 
     return result
 
-def _simple_stmt():
+def _simple_stmt(tokens):
     """Parse a simple statement.
 
     ::
@@ -319,31 +318,27 @@ def _simple_stmt():
     """
     result = [symbol.simple_stmt]
 
-    result.append(_small_stmt())
+    result.append(_small_stmt(tokens))
 
-    while parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ";":
+    while tokens.peek()[0] == token.OP and tokens.peek()[1] == ";":
         result.append((token.SEMI, ";"))
-        parser.tokens.next()
-        result.append(_small_stmt())
+        tokens.next()
+        result.append(_small_stmt(tokens))
         
-    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ";":
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ";":
         result.append((token.SEMI, ";"))
-        parser.tokens.next()
+        tokens.next()
 
     # trailing NEWLINE is mandatory according to grammar, but in Python's parser
     # it is optional, thus imitate this behavior
-    if parser.tokens.peek()[0] == token.NEWLINE:
-        parser.tokens.next()
+    if tokens.peek()[0] == token.NEWLINE:
+        tokens.next()
     
     result.append((token.NEWLINE, ''))
 
-    # TODO hack
-    if parser.tokens.peek()[0] == tokenize.NL:
-        parser.tokens.next()
-
     return result
 
-def _small_stmt():
+def _small_stmt(tokens):
     """Parse a small statement.
 
     ::
@@ -356,35 +351,18 @@ def _small_stmt():
     """
     result = [symbol.small_stmt]
 
-    # Remember the last "good" position of the tokens generator
-    parser.tokens, last_good_tokens = tee(parser.tokens)
-    parser.tokens = peekable(parser.tokens)
-
-    choices = [_expr_stmt, _print_stmt, _del_stmt, _pass_stmt, _flow_stmt,
-        _import_stmt, _global_stmt, _exec_stmt, _assert_stmt]
-    subtree = None
-
-    # Recursively descend a path. End of recursion is indicated by a ParserError
-    # from the child path. When a child path has failed, "roll back" the tokens-
-    # generator to the last good position
-    for choice in choices:
-        try:
-            subtree = choice()
-            break # break this loop if choice matches
-        except ParserError:
-            # restore last good position
-            parser.tokens = peekable(last_good_tokens)
-
-    if not subtree:
+    try:
+        result.append(matcher(tokens, [_expr_stmt, _print_stmt, _del_stmt,
+            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt, _exec_stmt,
+            _assert_stmt]))
+    except ParserError:
         raise ParserError("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
             "assert_stmt")
             
-    result.append(subtree)
-
     return result
 
-def _expr_stmt():
+def _expr_stmt(tokens):
     """Parse an expr stmt.
 
     ::
@@ -397,18 +375,18 @@ def _expr_stmt():
     """
     result = [symbol.expr_stmt]
     
-    result.append(_testlist())
+    result.append(_testlist(tokens))
     
-    while parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "=":
+    while tokens.peek()[0] == token.OP and tokens.peek()[1] == "=":
         result.append((token.EQUAL, "="))
-        parser.tokens.next()
-        result.append(_testlist())
+        tokens.next()
+        result.append(_testlist(tokens))
 
     # TODO augassign / yield_expr
     
     return result
 
-def _augassign():
+def _augassign(tokens):
     """Parse an augassign statement.
 
     ::
@@ -421,7 +399,7 @@ def _augassign():
     """
     raise NotImplementedError
 
-def _print_stmt():
+def _print_stmt(tokens):
     """Parse a print statement.
 
     ::
@@ -434,14 +412,14 @@ def _print_stmt():
     """
     result = [symbol.print_stmt]
 
-    if parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "print":
-        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-        parser.tokens.next()
+    if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "print":
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
         
-        if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ">>":
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ">>":
             raise NotImplementedError
         else:
-            result.append(_test())
+            result.append(_test(tokens))
         
         # TODO: test is optional
     else:
@@ -449,7 +427,7 @@ def _print_stmt():
 
     return result
 
-def _del_stmt():
+def _del_stmt(tokens):
     """Parse a delete statement.
 
     ::
@@ -462,7 +440,7 @@ def _del_stmt():
     raise NotImplementedError
 
 
-def _pass_stmt():
+def _pass_stmt(tokens):
     """Parse a pass statement.
 
     ::
@@ -474,7 +452,7 @@ def _pass_stmt():
     """
     raise NotImplementedError
 
-def _flow_stmt():
+def _flow_stmt(tokens):
     """Parse a flow statement.
 
     ::
@@ -486,7 +464,7 @@ def _flow_stmt():
     """
     raise NotImplementedError
 
-def _break_stmt():
+def _break_stmt(tokens):
     """Parse a break statement.
 
     ::
@@ -498,7 +476,7 @@ def _break_stmt():
     """
     raise NotImplementedError
 
-def _continue_stmt():
+def _continue_stmt(tokens):
     """Parse a continue statement.
 
     ::
@@ -510,7 +488,7 @@ def _continue_stmt():
     """
     raise NotImplementedError
 
-def _return_stmt():
+def _return_stmt(tokens):
     """Parse a return statement.
 
     ::
@@ -522,7 +500,7 @@ def _return_stmt():
     """
     raise NotImplementedError
 
-def _yield_stmt():
+def _yield_stmt(tokens):
     """Parse a yield statement.
 
     ::
@@ -534,7 +512,7 @@ def _yield_stmt():
     """
     raise NotImplementedError
 
-def _raise_stmt():
+def _raise_stmt(tokens):
     """Parse a raise statement.
 
     ::
@@ -546,7 +524,7 @@ def _raise_stmt():
     """
     raise NotImplementedError
 
-def _import_stmt():
+def _import_stmt(tokens):
     """Parse an import statement.
 
     ::
@@ -558,7 +536,7 @@ def _import_stmt():
     """
     raise NotImplementedError
 
-def _import_name():
+def _import_name(tokens):
     """Parse an import name.
 
     ::
@@ -570,7 +548,7 @@ def _import_name():
     """
     raise NotImplementedError
 
-def _import_from():
+def _import_from(tokens):
     """Parse an import from.
 
     ::
@@ -583,7 +561,7 @@ def _import_from():
     """
     raise NotImplementedError
 
-def _import_as_name():
+def _import_as_name(tokens):
     """Parse an import as names.
 
     ::
@@ -595,7 +573,7 @@ def _import_as_name():
     """
     raise NotImplementedError
 
-def _dotted_as_name():
+def _dotted_as_name(tokens):
     """Parse a dotted as name.
 
     ::
@@ -607,7 +585,7 @@ def _dotted_as_name():
     """
     raise NotImplementedError
 
-def _import_as_names():
+def _import_as_names(tokens):
     """Parse import as names.
 
     ::
@@ -619,7 +597,7 @@ def _import_as_names():
     """
     raise NotImplementedError
 
-def _dotted_as_names():
+def _dotted_as_names(tokens):
     """Parse dotted as names.
 
     ::
@@ -631,7 +609,7 @@ def _dotted_as_names():
     """
     raise NotImplementedError
 
-def _dotted_name():
+def _dotted_name(tokens):
     """Parse a dotted name.
 
     ::
@@ -643,7 +621,7 @@ def _dotted_name():
     """
     raise NotImplementedError
 
-def _global_stmt():
+def _global_stmt(tokens):
     """Parse a global statement.
 
     ::
@@ -655,7 +633,7 @@ def _global_stmt():
     """
     raise NotImplementedError
 
-def _exec_stmt():
+def _exec_stmt(tokens):
     """Parse an exec statement.
 
     ::
@@ -667,7 +645,7 @@ def _exec_stmt():
     """
     raise NotImplementedError
 
-def _assert_stmt():
+def _assert_stmt(tokens):
     """Parse an assert statement.
 
     ::
@@ -679,7 +657,7 @@ def _assert_stmt():
     """
     raise NotImplementedError
 
-def _compound_stmt():
+def _compound_stmt(tokens):
     """Parse a compound statement.
 
     ::
@@ -691,33 +669,15 @@ def _compound_stmt():
     """
     result = [symbol.compound_stmt]
   
-    # Remember the last "good" position of the tokens generator
-    parser.tokens, last_good_tokens = tee(parser.tokens)
-    parser.tokens = peekable(parser.tokens)
-
-    choices = [_while_stmt, _funcdef] # TODO
-    subtree = None
-
-    # Recursively descend a path. End of recursion is indicated by a ParserError
-    # from the child path. When a child path has failed, "roll back" the tokens-
-    # generator to the last good position
-    for choice in choices:
-        try:
-            subtree = choice()
-            break # break this loop if choice matches
-        except ParserError:
-            # restore last good position
-            parser.tokens = peekable(last_good_tokens)
-
-    if not subtree:
+    try:
+        result.append(matcher(tokens, [_while_stmt, _funcdef]))
+    except ParserError:
         raise ParserError("Expecting: if_stmt | while_stmt | for_stmt | "
             "try_stmt | with_stmt | funcdef | classdef | decorated")
-    
-    result.append(subtree)
 
     return result
 
-def _if_stmt():
+def _if_stmt(tokens):
     """Parse and if statement.
 
     ::
@@ -729,7 +689,7 @@ def _if_stmt():
     """
     raise NotImplementedError
 
-def _while_stmt():
+def _while_stmt(tokens):
     """Parse a while statement.
 
     ::
@@ -741,31 +701,31 @@ def _while_stmt():
     """
     result = [symbol.while_stmt]
     
-    if not (parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "while"):
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "while"):
         raise ParserError("Expecting `while'")
-    result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-    parser.tokens.next()
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
 
-    result.append(_test())
+    result.append(_test(tokens))
 
-    if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ":"):
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
         raise ParserError("Expecting `:'")
     result.append((token.COLON, ":"))
-    parser.tokens.next()
+    tokens.next()
 
-    result.append(_suite())
+    result.append(_suite(tokens))
 
-    if parser.tokens.peek()[0] == token.NAME and parser.tokens.peek()[1] == "else":
-        parser.tokens.next()
+    if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "else":
+        tokens.next()
         
-        if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ":"):
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
             raise ParserError("Expecting `:'")
             
-        result.append(_suite())
+        result.append(_suite(tokens))
 
     return result
 
-def _for_stmt():
+def _for_stmt(tokens):
     """Parse a for statement.
 
     ::
@@ -777,7 +737,7 @@ def _for_stmt():
     """
     raise NotImplementedError
 
-def _try_stmt():
+def _try_stmt(tokens):
     """Parse a try statement.
 
     ::
@@ -793,7 +753,7 @@ def _try_stmt():
     """
     raise NotImplementedError
 
-def _with_stmt():
+def _with_stmt(tokens):
     """Parse a with statement.
 
     ::
@@ -805,7 +765,7 @@ def _with_stmt():
     """
     raise NotImplementedError
 
-def _with_item():
+def _with_item(tokens):
     """Parse a with item.
 
     ::
@@ -817,7 +777,7 @@ def _with_item():
     """
     raise NotImplementedError
 
-def _except_clause():
+def _except_clause(tokens):
     """Parse an except clause.
 
     ::
@@ -829,7 +789,7 @@ def _except_clause():
     """
     raise NotImplementedError
 
-def _suite():
+def _suite(tokens):
     """Parse a suite.
 
     ::
@@ -841,32 +801,32 @@ def _suite():
     """
     result = [symbol.suite]
 
-    if parser.tokens.peek()[0] == token.NEWLINE:
+    if tokens.peek()[0] == token.NEWLINE:
         result.append((token.NEWLINE, ""))
-        parser.tokens.next()
+        tokens.next()
 
-        if parser.tokens.peek()[0] != token.INDENT:
+        if tokens.peek()[0] != token.INDENT:
             raise ParserError("Expecting INDENT")
         result.append((token.INDENT, ''))
-        parser.tokens.next()
+        tokens.next()
         
         try:
-            while parser.tokens.peek()[0] != token.DEDENT:
-                result.append(_stmt())
+            while tokens.peek()[0] != token.DEDENT:
+                result.append(_stmt(tokens))
         except StopIteration:
             pass # raise "Expecting DEDENT" in next block
 
-        if parser.tokens.peek()[0] != token.DEDENT:
+        if tokens.peek()[0] != token.DEDENT:
             raise ParserError("Expecting DEDENT")
         result.append((token.DEDENT, ''))
 
-        parser.tokens.next()
+        tokens.next()
     else:
         raise NotImplementedError
 
     return result
 
-def _testlist_safe():
+def _testlist_safe(tokens):
     """Parse a testlist safe.
 
     ::
@@ -878,7 +838,7 @@ def _testlist_safe():
     """
     raise NotImplementedError
 
-def _old_test():
+def _old_test(tokens):
     """Parse an old test.
 
     ::
@@ -890,7 +850,7 @@ def _old_test():
     """
     raise NotImplementedError
 
-def _old_lambdef():
+def _old_lambdef(tokens):
     """Parse an old lambda definition.
 
     ::
@@ -902,7 +862,7 @@ def _old_lambdef():
     """
     raise NotImplementedError
 
-def _test():
+def _test(tokens):
     """Parse a test statement.
 
     ::
@@ -913,13 +873,13 @@ def _test():
         list: A parse tree element
     """
     result = [symbol.test]
-    result.append(_or_test())
+    result.append(_or_test(tokens))
     
     # TODO if/lambdef
     
     return result
 
-def _or_test():
+def _or_test(tokens):
     """Parse an or_test statement
 
     ::
@@ -930,13 +890,13 @@ def _or_test():
         list: A parse tree element
     """
     result = [symbol.or_test]
-    result.append(_and_test())
+    result.append(_and_test(tokens))
 
     # TODO or and_test
     
     return result
 
-def _and_test():
+def _and_test(tokens):
     """Parse an and test statement.
 
     ::
@@ -947,13 +907,13 @@ def _and_test():
         list: A parse tree element
     """
     result = [symbol.and_test]
-    result.append(_not_test())
+    result.append(_not_test(tokens))
     
     # TODO and not_test
     
     return result
 
-def _not_test():
+def _not_test(tokens):
     """Parse a not test statement.
 
     ::
@@ -964,13 +924,13 @@ def _not_test():
         list: A parse tree element
     """
     result = [symbol.not_test]
-    result.append(_comparison())
+    result.append(_comparison(tokens))
 
     # TODO: not not_test
     
     return result
 
-def _comparison():
+def _comparison(tokens):
     """Parse a comparison.
 
     ::
@@ -982,31 +942,12 @@ def _comparison():
     """
     result = [symbol.comparison]
     
-    result.append(_expr())
-
-    # Remember the last "good" position of the tokens generator
-    parser.tokens, last_good_tokens = tee(parser.tokens)
-    parser.tokens = peekable(parser.tokens)
-
-    # Recursively descend a path. End of recursion is indicated by a ParserError
-    # from the child path. When a child path has failed, "roll back" the tokens-
-    # generator to the last good position
-    try:
-        comp_op = _comp_op()
-        expr = _expr()
-
-        # both paths were successful -> add to result
-        result.append(comp_op)
-        result.append(expr)
-    except ParserError:
-        # restore last good position
-        parser.tokens = peekable(last_good_tokens)
-
-    # TODO: implement loop
+    result.append(_expr(tokens))
+    result = result + matcher(tokens, [(_comp_op, _expr)], optional=True, repeat=True)
 
     return result
 
-def _comp_op():
+def _comp_op(tokens):
     """Parse a compare operator statement.
 
     ::
@@ -1021,54 +962,54 @@ def _comp_op():
     parser_error = ParserError("Expecting: '<'|'>'|'=='|'>='|'<='|'<>'|'!='"
         "|'in'|'not' 'in'|'is'|'is' 'not'")
 
-    if parser.tokens.peek()[0] == token.OP:
-        if parser.tokens.peek()[1] == "<":
+    if tokens.peek()[0] == token.OP:
+        if tokens.peek()[1] == "<":
             result.append((token.LESS, "<"))
-            parser.tokens.next()
-        elif parser.tokens.peek()[1] == ">":
+            tokens.next()
+        elif tokens.peek()[1] == ">":
             result.append((token.GREATER, ">"))
-            parser.tokens.next()
-        elif parser.tokens.peek()[1] == "==":
+            tokens.next()
+        elif tokens.peek()[1] == "==":
             result.append((token.EQEQUAL, "=="))
-            parser.tokens.next()
-        elif parser.tokens.peek()[1] == ">=":
+            tokens.next()
+        elif tokens.peek()[1] == ">=":
             result.append((token.GREATEREQUAL, ">="))
-            parser.tokens.next()
-        elif parser.tokens.peek()[1] == "<=":
+            tokens.next()
+        elif tokens.peek()[1] == "<=":
             result.append((token.LESSEQUAL, "<="))
-            parser.tokens.next()
-        elif parser.tokens.peek()[1] == "<>":
+            tokens.next()
+        elif tokens.peek()[1] == "<>":
             result.append((token.NOTEQUAL, "<>"))
-            parser.tokens.next()
-        elif parser.tokens.peek()[1] == "!=":
+            tokens.next()
+        elif tokens.peek()[1] == "!=":
             result.append((token.NOTEQUAL, "!="))
-            parser.tokens.next()
+            tokens.next()
         else:
             raise parser_error
-    elif parser.tokens.peek()[0] == token.NAME:
-        if parser.tokens.peek()[1] == "in":
-            result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-            parser.tokens.next()
-        elif parser.tokens.peek()[1] == "not":
-            result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-            parser.tokens.next()
-            if parser.tokens.peek()[0] == "in":
-                result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-                parser.tokens.next()
+    elif tokens.peek()[0] == token.NAME:
+        if tokens.peek()[1] == "in":
+            result.append((tokens.peek()[0], tokens.peek()[1]))
+            tokens.next()
+        elif tokens.peek()[1] == "not":
+            result.append((tokens.peek()[0], tokens.peek()[1]))
+            tokens.next()
+            if tokens.peek()[0] == "in":
+                result.append((tokens.peek()[0], tokens.peek()[1]))
+                tokens.next()
             else:
                 raise parser_error
-        elif parser.tokens.peek()[1] == "is":
-            result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-            parser.tokens.next()
-            if parser.tokens.peek()[0] == "not":
-                result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-                parser.tokens.next()
+        elif tokens.peek()[1] == "is":
+            result.append((tokens.peek()[0], tokens.peek()[1]))
+            tokens.next()
+            if tokens.peek()[0] == "not":
+                result.append((tokens.peek()[0], tokens.peek()[1]))
+                tokens.next()
     else:
         raise parser_error
 
     return result
 
-def _expr():
+def _expr(tokens):
     """Parse an expression statement.
 
     ::
@@ -1079,13 +1020,13 @@ def _expr():
         list: A parse tree element
     """
     result = [symbol.expr]
-    result.append(_xor_expr())
+    result.append(_xor_expr(tokens))
     
     # TODO | xor_expr
     
     return result
 
-def _xor_expr():
+def _xor_expr(tokens):
     """Parse an xor expression statement.
 
     ::
@@ -1096,13 +1037,13 @@ def _xor_expr():
         list: A parse tree element
     """
     result = [symbol.xor_expr]
-    result.append(_and_expr())
+    result.append(_and_expr(tokens))
 
     # TODO ^ and_exr
     
     return result
 
-def _and_expr():
+def _and_expr(tokens):
     """Parse an and expression statement.
 
     ::
@@ -1113,13 +1054,13 @@ def _and_expr():
         list: A parse tree element
     """
     result = [symbol.and_expr]
-    result.append(_shift_expr())
+    result.append(_shift_expr(tokens))
     
     # TODO
     
     return result
 
-def _shift_expr():
+def _shift_expr(tokens):
     """Parse a shift_expr statement
 
     ::
@@ -1130,13 +1071,13 @@ def _shift_expr():
         list: A parse tree element
     """
     result = [symbol.shift_expr]
-    result.append(_arith_expr())
+    result.append(_arith_expr(tokens))
     
     # TODO
     
     return result
 
-def _arith_expr():
+def _arith_expr(tokens):
     """Parse an arithmetic expression statement.
 
     ::
@@ -1147,22 +1088,22 @@ def _arith_expr():
         list: A parse tree element
     """
     result = [symbol.arith_expr]
-    result.append(_term())
+    result.append(_term(tokens))
     
-    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "+":
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "+":
         result.append((token.PLUS, "+"))
-        parser.tokens.next()
-        result.append(_term())
-    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "-":
+        tokens.next()
+        result.append(_term(tokens))
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "-":
         result.append((token.MINUS, "+"))
-        parser.tokens.next()
-        result.append(_term())
+        tokens.next()
+        result.append(_term(tokens))
     
     # TODO: repetition
 
     return result
 
-def _term():
+def _term(tokens):
     """Parse a term statement.
 
     ::
@@ -1173,13 +1114,13 @@ def _term():
         list: A parse tree element
     """
     result = [symbol.term]
-    result.append(_factor())
+    result.append(_factor(tokens))
     
     # TODO
     
     return result
     
-def _factor():
+def _factor(tokens):
     """Parse a factor statement.
 
     ::
@@ -1193,10 +1134,10 @@ def _factor():
     
     # TODO
     
-    result.append(_power())
+    result.append(_power(tokens))
     return result
     
-def _power():
+def _power(tokens):
     """Parse a power statement.
 
     ::
@@ -1207,16 +1148,16 @@ def _power():
         list: A parse tree element
     """
     result = [symbol.power]
-    result.append(_atom())
+    result.append(_atom(tokens))
 
-    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "(":
-        result.append(_trailer())
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
+        result.append(_trailer(tokens))
     
     # TODO factor, multiple trailers
     
     return result
 
-def _atom():
+def _atom(tokens):
     """Parse an atom statement.
 
     ::
@@ -1237,43 +1178,43 @@ def _atom():
         "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
         "print", "raise", "return", "try", "while", "with", "yield"]
 
-    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "(":
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
         result.append((token.LPAR, "("))
-        parser.tokens.next()
+        tokens.next()
         
         # TODO yield_expr
-        result.append(_testlist_comp())
+        result.append(_testlist_comp(tokens))
         
-        if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "("):
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "("):
             result.append((token.RPAR, ")"))
-            parser.tokens.next()
-    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "[":
+            tokens.next()
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
         raise NotImplementedError
-    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "{":
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "{":
         raise NotImplementedError
-    elif parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "`":
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "`":
         raise NotImplementedError
-    elif parser.tokens.peek()[0] == token.NUMBER:
-        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-        parser.tokens.next()
-    elif parser.tokens.peek()[0] == token.NAME:
-        if parser.tokens.peek()[1] in keywords:
+    elif tokens.peek()[0] == token.NUMBER:
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+    elif tokens.peek()[0] == token.NAME:
+        if tokens.peek()[1] in keywords:
             raise ParserError # keywords cannot appear here
-        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-        parser.tokens.next()
-    elif parser.tokens.peek()[0] == token.STRING:
-        result.append((parser.tokens.peek()[0], parser.tokens.peek()[1]))
-        parser.tokens.next()
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+    elif tokens.peek()[0] == token.STRING:
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
     else:
-        raise ParserError("Expecting: ('(' [yield_expr|testlist_comp] ')' |\n"
-            "'[' [listmaker] ']' |\n"
-            "'{' [dictorsetmaker] '}' |\n"
-            "'`' testlist1 '`' |\n"
+        raise ParserError("Expecting: ('(' [yield_expr|testlist_comp] ')' | "
+            "'[' [listmaker] ']' | "
+            "'{' [dictorsetmaker] '}' | "
+            "'`' testlist1 '`' | "
             "NAME | NUMBER | STRING+)")
         
     return result
     
-def _listmaker():
+def _listmaker(tokens):
     """Parse a listmaker statement.
 
     ::
@@ -1285,7 +1226,7 @@ def _listmaker():
     """
     raise NotImplementedError
 
-def _testlist_comp():
+def _testlist_comp(tokens):
     """Parse a testlist comp statement.
 
     ::
@@ -1297,13 +1238,13 @@ def _testlist_comp():
     """
     result = [symbol.test]
     
-    result.append(_test())
+    result.append(_test(tokens))
     
     # TODO
     
     return result
 
-def _lambdef():
+def _lambdef(tokens):
     """Parse a lambda definition.
 
     ::
@@ -1315,7 +1256,7 @@ def _lambdef():
     """
     raise NotImplementedError
 
-def _trailer():
+def _trailer(tokens):
     """Parse a trailer.
 
     ::
@@ -1327,23 +1268,22 @@ def _trailer():
     """
     result = [symbol.trailer]
 
-    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == "(":
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
         result.append((token.LPAR, "("))
-        parser.tokens.next()
+        tokens.next()
         
-        # TODO: optional
-        result.append(_arglist())
-        
-        if not (parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ")"):
+        result = result + matcher(tokens, [[_arglist]], optional=True)
+
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
             raise ParserError("Expecting `)'")
         result.append((token.RPAR, ")"))
-        parser.tokens.next()
+        tokens.next()
     else:
         raise NotImplementedError
     
     return result
 
-def _subscriptlist():
+def _subscriptlist(tokens):
     """Parse a subscriptlist.
 
     ::
@@ -1355,7 +1295,7 @@ def _subscriptlist():
     """
     raise NotImplementedError
 
-def _subscript():
+def _subscript(tokens):
     """Parse a subscript.
 
     ::
@@ -1367,7 +1307,7 @@ def _subscript():
     """
     raise NotImplementedError
 
-def _sliceop():
+def _sliceop(tokens):
     """Parse a slice operation.
 
     ::
@@ -1379,7 +1319,7 @@ def _sliceop():
     """
     raise NotImplementedError
 
-def _exprlist():
+def _exprlist(tokens):
     """Parse an expression list.
 
     ::
@@ -1391,7 +1331,7 @@ def _exprlist():
     """
     raise NotImplementedError
 
-def _testlist():
+def _testlist(tokens):
     """Parse a testlist.
 
     ::
@@ -1403,19 +1343,19 @@ def _testlist():
     """
     result = [symbol.testlist]
     
-    result.append(_test())
+    result.append(_test(tokens))
     
-    while parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ",":
+    while tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
         result.append((token.COMMA, ","))
-        parser.tokens.next()
-        result.append(_test())
+        tokens.next()
+        result.append(_test(tokens))
 
-    if parser.tokens.peek()[0] == token.OP and parser.tokens.peek()[1] == ",":
-        parser.tokens.next()
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+        tokens.next()
     
     return result
 
-def _dictorsetmaker():
+def _dictorsetmaker(tokens):
     """Parse a dict or set maker statement.
 
     ::
@@ -1428,7 +1368,7 @@ def _dictorsetmaker():
     """
     raise NotImplementedError
 
-def _classdef():
+def _classdef(tokens):
     """Parse a class definition.
 
     ::
@@ -1440,7 +1380,7 @@ def _classdef():
     """
     raise NotImplementedError
 
-def _arglist():
+def _arglist(tokens):
     """Parse an argument list.
 
     ::
@@ -1454,13 +1394,13 @@ def _arglist():
     """
     result = [symbol.arglist]
     
-    result.append(_argument())
+    result.append(_argument(tokens))
     
     # TODO
 
     return result
 
-def _argument():
+def _argument(tokens):
     """Parse an argument.
 
     ::
@@ -1472,13 +1412,13 @@ def _argument():
     """
     result = [symbol.argument]
     
-    result.append(_test())
+    result.append(_test(tokens))
     
     # TODO
     
     return result
 
-def _list_iter():
+def _list_iter(tokens):
     """Parse a list iteration.
 
     ::
@@ -1490,7 +1430,7 @@ def _list_iter():
     """
     raise NotImplementedError
 
-def _list_for():
+def _list_for(tokens):
     """Parse a list for.
 
     ::
@@ -1502,7 +1442,7 @@ def _list_for():
     """
     raise NotImplementedError
 
-def _list_if():
+def _list_if(tokens):
     """Parse a list if.
 
     ::
@@ -1514,7 +1454,7 @@ def _list_if():
     """
     raise NotImplementedError
 
-def _comp_iter():
+def _comp_iter(tokens):
     """Parse a comp iter.
 
     ::
@@ -1526,7 +1466,7 @@ def _comp_iter():
     """
     raise NotImplementedError
 
-def _comp_for():
+def _comp_for(tokens):
     """Parse a comp for.
 
     ::
@@ -1538,7 +1478,7 @@ def _comp_for():
     """
     raise NotImplementedError
 
-def _comp_if():
+def _comp_if(tokens):
     """Parse a comp if.
 
     ::
@@ -1550,7 +1490,7 @@ def _comp_if():
     """
     raise NotImplementedError
 
-def _testlist1():
+def _testlist1(tokens):
     """Parse a testlist1.
 
     ::
@@ -1562,7 +1502,7 @@ def _testlist1():
     """
     raise NotImplementedError
 
-def _encoding_decl():
+def _encoding_decl(tokens):
     """Parse an encoding declaration.
 
     ::
@@ -1574,7 +1514,7 @@ def _encoding_decl():
     """
     raise NotImplementedError
 
-def _yield_expr():
+def _yield_expr(tokens):
     """Parse a yield expression.
 
     ::
@@ -1585,3 +1525,184 @@ def _yield_expr():
         list: A parse tree element
     """
     raise NotImplementedError
+
+def matcher(tokens, choices, repeat=False, optional=False):
+    """The matcher finds a parse path among multiple choices.
+    
+    The end of a recursion is indicated by a ParserError. When a child path has
+    failed, the tokens generator is "rolled back" to the last good position.
+
+    Args:
+        tokens (TokenIterator): token iterator
+        choices (list): a list of 
+        repeat: repeat a choice (only a single choice possible)
+        optional: matching optional or mandatory (does at least one match need to occur?)
+
+    Returns:
+        list: The matching parse tree element, ``None'' for no matches
+
+    Raises:
+        ParserError: Parser Error
+
+    >>> from pycep.tokenizer import generate_tokens
+    >>> from StringIO import StringIO
+    >>> from pycep.parser import TokenIterator, matcher
+    >>> from pycep.parser import _expr_stmt, _print_stmt, _del_stmt, _testlist,
+    ...     _comp_op, _expr
+
+    Suppose the following example with multiple choices (abbreviated):
+    
+        ::
+
+        small_stmt: (expr_stmt | print_stmt  | del_stmt)
+
+    This would be written as:
+    
+    >>> t1 = TokenIterator(generate_tokens(StringIO('print "Hello World"').readline))
+    >>> matcher(t1, [_expr_stmt, _print_stmt, _del_stmt])
+    [272, (1, 'print'), [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (3, '"Hello World"')]]]]]]]]]]]]]]]
+
+    Suppose the following example with an optional argument ``testlist'':
+    
+        ::
+
+        yield_expr: 'yield' [testlist]
+    
+    This would be written as:
+    
+    >>> t2 = TokenIterator(generate_tokens(StringIO("yield 5").readline))
+    >>> t2.next()
+    (1, 'yield', (1, 0), (1, 5), 'yield 5')
+    >>> matcher(t2, [_testlist], optional=True)
+    [327, [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (2, '5')]]]]]]]]]]]]]]]
+    
+    Suppose the following example with a repetition of the sequence ``comp_op expr'':
+    
+        ::
+
+        comparison: expr (comp_op expr)*
+
+    This would be written as:
+    
+    >>> t3 = TokenIterator(generate_tokens(StringIO("1 < 2").readline))
+    >>> _expr(t3)
+    [310, [311, [312, [313, [314, [315, [316, [317, [318, (2, '1')]]]]]]]]]
+    >>> matcher(t3, [(_comp_op, _expr)], optional=True, repeat=True)
+    [[309, (20, '<')], [310, [311, [312, [313, [314, [315, [316, [317, [318, (2, '2')]]]]]]]]]]
+
+    """
+
+    last_good = tokens.index
+    result, success = None, False
+
+    if repeat:
+        if len(choices) != 1:
+            raise ValueError("Can only repeat a single choice")
+        
+        choice = choices[0]
+        result = []
+       
+        while True:
+            try:
+                # given a sequence, only succeed if the *entire* sequence succeeds
+                if type(choice) in [list, tuple]:
+                    tmp = []
+    
+                    for sequence in choice:
+                        tmp.append(sequence(tokens))
+                    
+                    # all paths were successful -> add to result
+                    result = result + tmp
+                else:
+                    result = result + choice(tokens)
+
+                success = True
+                last_good = tokens.index
+            except ParserError:
+                tokens.seek(last_good)
+                break # stop loop
+
+    else:
+        for choice in choices:
+            try:
+                # given a sequence, only succeed if the *entire* sequence succeeds
+                if type(choice) in [list, tuple]:
+                    result = tmp = []
+    
+                    for sequence in choice:
+                        tmp.append(sequence(tokens))
+                    
+                    # all paths were successful -> add to result
+                    result = tmp
+                else:
+                    result = choice(tokens)
+    
+                success = True
+                break # stop iteration
+            except ParserError:
+                tokens.seek(last_good)
+
+    if not optional and not success:
+        raise ParserError
+
+    return result
+
+class TokenIterator(object):
+    """Wrapper for token generator which adds 1-token lookahead peeking and
+    backtracking seeks. Furthermore, physical line breaks (``tokenize.NL``)
+    are skipped from the input.
+       
+    >>> from pycep.tokenizer import generate_tokens
+    >>> from StringIO import StringIO
+    >>> from pycep.parser import TokenIterator
+    >>> tokens = TokenIterator(generate_tokens(StringIO('print "Hello World"').readline))
+    >>> tokens.peek()
+    (1, 'print', (1, 0), (1, 5), 'print "Hello World"')
+    >>> tokens.next()
+    (1, 'print', (1, 0), (1, 5), 'print "Hello World"')
+    >>> tokens.next()
+    (3, '"Hello World"', (1, 6), (1, 19), 'print "Hello World"')
+    >>> tokens.next()
+    (0, '', (2, 0), (2, 0), '')
+    >>> tokens.seek(-1)
+    >>> tokens.peek()
+    (1, 'print', (1, 0), (1, 5), 'print "Hello World"')
+    """
+
+    def __init__(self, generator):
+        self.index = -1
+        self._values = []
+        self._peekable = peekable(generator)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.index >= -1 and self.index + 1 < len(self._values):
+            self.index += 1
+            value = self._values[self.index]
+        else:
+            value = self._peekable.next()
+            while value[0] == tokenize.NL: # skip physical line breaks
+                value = self._peekable.next()
+            self.index += 1
+            self._values.append(value)
+
+        return value
+    
+    def peek(self):
+        if self.index >= -1 and self.index + 1 < len(self._values):
+            value = self._values[self.index + 1]
+        else:
+            value = self._peekable.peek()
+            while value[0] == tokenize.NL: # skip physical line breaks
+                self._peekable.next()
+                value = self._peekable.peek()
+
+        return value
+
+    def seek(self, index):
+        if index < -1 or index > len(self._values):
+            raise IndexError("Cannot seek forward: only backtracking allowed")
+        
+        self.index = index
