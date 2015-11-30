@@ -1552,9 +1552,9 @@ def matcher(tokens, choices, repeat=False, optional=False):
 
     Suppose the following example with multiple choices (abbreviated):
     
-        ::
+    ::
 
-            small_stmt: (expr_stmt | print_stmt  | del_stmt)
+        small_stmt: (expr_stmt | print_stmt  | del_stmt)
 
     This would be written as:
     
@@ -1564,9 +1564,9 @@ def matcher(tokens, choices, repeat=False, optional=False):
 
     Suppose the following example with an optional argument ``testlist'':
     
-        ::
-
-            yield_expr: 'yield' [testlist]
+    ::
+    
+        yield_expr: 'yield' [testlist]
     
     This would be written as:
     
@@ -1578,9 +1578,9 @@ def matcher(tokens, choices, repeat=False, optional=False):
     
     Suppose the following example with a repetition of the sequence ``comp_op expr'':
     
-        ::
+    ::
 
-            comparison: expr (comp_op expr)*
+        comparison: expr (comp_op expr)*
 
     This would be written as:
     
