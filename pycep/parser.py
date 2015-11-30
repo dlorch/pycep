@@ -1554,7 +1554,7 @@ def matcher(tokens, choices, repeat=False, optional=False):
     
         ::
 
-        small_stmt: (expr_stmt | print_stmt  | del_stmt)
+            small_stmt: (expr_stmt | print_stmt  | del_stmt)
 
     This would be written as:
     
@@ -1566,7 +1566,7 @@ def matcher(tokens, choices, repeat=False, optional=False):
     
         ::
 
-        yield_expr: 'yield' [testlist]
+            yield_expr: 'yield' [testlist]
     
     This would be written as:
     
@@ -1580,7 +1580,7 @@ def matcher(tokens, choices, repeat=False, optional=False):
     
         ::
 
-        comparison: expr (comp_op expr)*
+            comparison: expr (comp_op expr)*
 
     This would be written as:
     
