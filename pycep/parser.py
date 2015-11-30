@@ -85,9 +85,6 @@ def _single_input(tokens):
     ::
 
         single_input: NEWLINE | simple_stmt | compound_stmt NEWLINE
-
-    Returns:
-        list: A parse tree element for the single input
     """
     raise NotImplementedError
 
@@ -97,9 +94,6 @@ def _file_input(tokens):
     ::
     
         file_input: (NEWLINE | stmt)* ENDMARKER
-
-    Returns:
-        list: A parse tree element for the file input
     """
     result = [symbol.file_input]
     
@@ -130,9 +124,6 @@ def _eval_input(tokens):
     ::
 
         eval_input: testlist NEWLINE* ENDMARKER
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -142,9 +133,6 @@ def _decorator(tokens):
     ::
 
         decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -154,9 +142,6 @@ def _decorators(tokens):
     ::
 
         decorators: decorator+
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -166,9 +151,6 @@ def _decorated(tokens):
     ::
 
         decorated: decorators (classdef | funcdef)
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -178,9 +160,6 @@ def _funcdef(tokens):
     ::
 
         funcdef: 'def' NAME parameters ':' suite
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.funcdef]
     
@@ -211,9 +190,6 @@ def _parameters(tokens):
     ::
 
         parameters: '(' [varargslist] ')'
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.parameters]
 
@@ -242,9 +218,6 @@ def _varargslist(tokens):
         varargslist: ((fpdef ['=' test] ',')*
                       ('*' NAME [',' '**' NAME] | '**' NAME) |
                       fpdef ['=' test] (',' fpdef ['=' test])* [','])
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.varargslist]
     result.append(_fpdef(tokens))
@@ -259,9 +232,6 @@ def _fpdef(tokens):
     ::
 
         fpdef: NAME | '(' fplist ')'
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.fpdef]
     result.append((tokens.peek()[0], tokens.peek()[1]))
@@ -277,9 +247,6 @@ def _fplist(tokens):
     ::
 
         fplist: fpdef (',' fpdef)* [',']
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -289,9 +256,6 @@ def _stmt(tokens):
     ::
 
         stmt: simple_stmt | compound_stmt
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.stmt]
 
@@ -312,9 +276,6 @@ def _simple_stmt(tokens):
     ::
 
         simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.simple_stmt]
 
@@ -345,9 +306,6 @@ def _small_stmt(tokens):
 
         small_stmt: (expr_stmt | print_stmt  | del_stmt | pass_stmt | flow_stmt |
                      import_stmt | global_stmt | exec_stmt | assert_stmt)
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.small_stmt]
 
@@ -369,9 +327,6 @@ def _expr_stmt(tokens):
 
         expr_stmt: testlist (augassign (yield_expr|testlist) |
                              ('=' (yield_expr|testlist))*)
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.expr_stmt]
     
@@ -393,9 +348,6 @@ def _augassign(tokens):
 
         augassign: ('+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' |
         '<<=' | '>>=' | '**=' | '//=')
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -406,9 +358,6 @@ def _print_stmt(tokens):
 
         print_stmt: 'print' ( [ test (',' test)* [','] ] |
                               '>>' test [ (',' test)+ [','] ] )
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.print_stmt]
 
@@ -433,9 +382,6 @@ def _del_stmt(tokens):
     ::
 
         del_stmt: 'del' exprlist
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -446,9 +392,6 @@ def _pass_stmt(tokens):
     ::
 
         pass_stmt: 'pass'
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -458,9 +401,6 @@ def _flow_stmt(tokens):
     ::
 
         flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -470,9 +410,6 @@ def _break_stmt(tokens):
     ::
 
         break_stmt: 'break'
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -482,9 +419,6 @@ def _continue_stmt(tokens):
     ::
 
         continue_stmt: 'continue'
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -494,9 +428,6 @@ def _return_stmt(tokens):
     ::
 
         return_stmt: 'return' [testlist]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -506,9 +437,6 @@ def _yield_stmt(tokens):
     ::
 
         yield_stmt: yield_expr
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -518,9 +446,6 @@ def _raise_stmt(tokens):
     ::
 
         raise_stmt: 'raise' [test [',' test [',' test]]]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -530,9 +455,6 @@ def _import_stmt(tokens):
     ::
 
         import_stmt: import_name | import_from
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -542,9 +464,6 @@ def _import_name(tokens):
     ::
 
         import_name: 'import' dotted_as_names
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -555,9 +474,6 @@ def _import_from(tokens):
 
         import_from: ('from' ('.'* dotted_name | '.'+)
                       'import' ('*' | '(' import_as_names ')' | import_as_names))
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -567,9 +483,6 @@ def _import_as_name(tokens):
     ::
 
         import_as_name: NAME ['as' NAME]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -579,9 +492,6 @@ def _dotted_as_name(tokens):
     ::
 
         dotted_as_name: dotted_name ['as' NAME]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -591,9 +501,6 @@ def _import_as_names(tokens):
     ::
 
         import_as_names: import_as_name (',' import_as_name)* [',']
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -603,9 +510,6 @@ def _dotted_as_names(tokens):
     ::
 
         dotted_as_names: dotted_as_name (',' dotted_as_name)*
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -615,9 +519,6 @@ def _dotted_name(tokens):
     ::
 
         dotted_name: NAME ('.' NAME)*
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -627,9 +528,6 @@ def _global_stmt(tokens):
     ::
 
         global_stmt: 'global' NAME (',' NAME)*
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -639,9 +537,6 @@ def _exec_stmt(tokens):
     ::
 
         exec_stmt: 'exec' expr ['in' test [',' test]]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -651,9 +546,6 @@ def _assert_stmt(tokens):
     ::
 
         assert_stmt: 'assert' test [',' test]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -663,9 +555,6 @@ def _compound_stmt(tokens):
     ::
 
         compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.compound_stmt]
   
@@ -683,9 +572,6 @@ def _if_stmt(tokens):
     ::
 
         if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -695,9 +581,6 @@ def _while_stmt(tokens):
     ::
 
         while_stmt: 'while' test ':' suite ['else' ':' suite]
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.while_stmt]
     
@@ -731,9 +614,6 @@ def _for_stmt(tokens):
     ::
 
         for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -747,9 +627,6 @@ def _try_stmt(tokens):
                     ['else' ':' suite]
                     ['finally' ':' suite] |
                    'finally' ':' suite))
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -759,9 +636,6 @@ def _with_stmt(tokens):
     ::
 
         with_stmt: 'with' with_item (',' with_item)*  ':' suite
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -771,9 +645,6 @@ def _with_item(tokens):
     ::
 
         with_item: test ['as' expr]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -783,9 +654,6 @@ def _except_clause(tokens):
     ::
 
         except_clause: 'except' [test [('as' | ',') test]]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -795,9 +663,6 @@ def _suite(tokens):
     ::
 
         suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.suite]
 
@@ -832,9 +697,6 @@ def _testlist_safe(tokens):
     ::
 
         testlist_safe: old_test [(',' old_test)+ [',']]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -844,9 +706,6 @@ def _old_test(tokens):
     ::
 
         old_test: or_test | old_lambdef
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -856,9 +715,6 @@ def _old_lambdef(tokens):
     ::
 
         old_lambdef: 'lambda' [varargslist] ':' old_test
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -868,9 +724,6 @@ def _test(tokens):
     ::
 
         test: or_test ['if' or_test 'else' test] | lambdef
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.test]
     result.append(_or_test(tokens))
@@ -885,9 +738,6 @@ def _or_test(tokens):
     ::
 
         or_test: and_test ('or' and_test)*
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.or_test]
     result.append(_and_test(tokens))
@@ -902,9 +752,6 @@ def _and_test(tokens):
     ::
 
         and_test: not_test ('and' not_test)*
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.and_test]
     result.append(_not_test(tokens))
@@ -919,9 +766,6 @@ def _not_test(tokens):
     ::
 
         not_test: 'not' not_test | comparison
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.not_test]
     result.append(_comparison(tokens))
@@ -936,9 +780,6 @@ def _comparison(tokens):
     ::
 
         comparison: expr (comp_op expr)*
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.comparison]
     
@@ -953,9 +794,6 @@ def _comp_op(tokens):
     ::
 
         comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.comp_op]
 
@@ -1015,9 +853,6 @@ def _expr(tokens):
     ::
 
         expr: xor_expr ('|' xor_expr)*
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.expr]
     result.append(_xor_expr(tokens))
@@ -1032,9 +867,6 @@ def _xor_expr(tokens):
     ::
 
         xor_expr: and_expr ('^' and_expr)*
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.xor_expr]
     result.append(_and_expr(tokens))
@@ -1049,9 +881,6 @@ def _and_expr(tokens):
     ::
 
         and_expr: shift_expr ('&' shift_expr)*
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.and_expr]
     result.append(_shift_expr(tokens))
@@ -1066,9 +895,6 @@ def _shift_expr(tokens):
     ::
 
         shift_expr: arith_expr (('<<'|'>>') arith_expr)*
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.shift_expr]
     result.append(_arith_expr(tokens))
@@ -1083,9 +909,6 @@ def _arith_expr(tokens):
     ::
 
         arith_expr: term (('+'|'-') term)*
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.arith_expr]
     result.append(_term(tokens))
@@ -1109,9 +932,6 @@ def _term(tokens):
     ::
 
         term: factor (('*'|'/'|'%'|'//') factor)*
-
-    Return:
-        list: A parse tree element
     """
     result = [symbol.term]
     result.append(_factor(tokens))
@@ -1126,9 +946,6 @@ def _factor(tokens):
     ::
 
         factor: ('+'|'-'|'~') factor | power
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.factor]
     
@@ -1143,9 +960,6 @@ def _power(tokens):
     ::
 
         power: atom trailer* ['**' factor]
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.power]
     result.append(_atom(tokens))
@@ -1167,9 +981,6 @@ def _atom(tokens):
                '{' [dictorsetmaker] '}' |
                '`' testlist1 '`' |
                NAME | NUMBER | STRING+)
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.atom]
     
@@ -1220,9 +1031,6 @@ def _listmaker(tokens):
     ::
 
         listmaker: test ( list_for | (',' test)* [','] )
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1232,9 +1040,6 @@ def _testlist_comp(tokens):
     ::
 
         testlist_comp: test ( comp_for | (',' test)* [','] )
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.test]
     
@@ -1250,9 +1055,6 @@ def _lambdef(tokens):
     ::
 
         lambdef: 'lambda' [varargslist] ':' test
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1262,9 +1064,6 @@ def _trailer(tokens):
     ::
 
         trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.trailer]
 
@@ -1289,9 +1088,6 @@ def _subscriptlist(tokens):
     ::
 
         subscriptlist: subscript (',' subscript)* [',']
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1301,9 +1097,6 @@ def _subscript(tokens):
     ::
 
         subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1313,9 +1106,6 @@ def _sliceop(tokens):
     ::
 
         sliceop: ':' [test]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1325,9 +1115,6 @@ def _exprlist(tokens):
     ::
 
         exprlist: expr (',' expr)* [',']
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1337,9 +1124,6 @@ def _testlist(tokens):
     ::
 
         testlist: test (',' test)* [',']
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.testlist]
     
@@ -1362,9 +1146,6 @@ def _dictorsetmaker(tokens):
 
         dictorsetmaker: ( (test ':' test (comp_for | (',' test ':' test)* [','])) |
                           (test (comp_for | (',' test)* [','])) )
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1374,9 +1155,6 @@ def _classdef(tokens):
     ::
 
             classdef: 'class' NAME ['(' [testlist] ')'] ':' suite
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1388,9 +1166,6 @@ def _arglist(tokens):
         arglist: (argument ',')* (argument [',']
                                  |'*' test (',' argument)* [',' '**' test]
                                  |'**' test)
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.arglist]
     
@@ -1406,9 +1181,6 @@ def _argument(tokens):
     ::
 
         argument: test [comp_for] | test '=' test
-
-    Returns:
-        list: A parse tree element
     """
     result = [symbol.argument]
     
@@ -1424,9 +1196,6 @@ def _list_iter(tokens):
     ::
 
         list_iter: list_for | list_if
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1436,9 +1205,6 @@ def _list_for(tokens):
     ::
 
         list_for: 'for' exprlist 'in' testlist_safe [list_iter]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1448,9 +1214,6 @@ def _list_if(tokens):
     ::
 
         list_if: 'if' old_test [list_iter]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1460,9 +1223,6 @@ def _comp_iter(tokens):
     ::
 
         comp_iter: comp_for | comp_if
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1472,9 +1232,6 @@ def _comp_for(tokens):
     ::
 
         comp_for: 'for' exprlist 'in' or_test [comp_iter]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1484,9 +1241,6 @@ def _comp_if(tokens):
     ::
 
         comp_if: 'if' old_test [comp_iter]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1496,9 +1250,6 @@ def _testlist1(tokens):
     ::
 
         testlist1: test (',' test)*
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1508,9 +1259,6 @@ def _encoding_decl(tokens):
     ::
 
         encoding_decl: NAME
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
@@ -1520,9 +1268,6 @@ def _yield_expr(tokens):
     ::
 
         yield_expr: 'yield' [testlist]
-
-    Returns:
-        list: A parse tree element
     """
     raise NotImplementedError
 
