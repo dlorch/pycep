@@ -1274,7 +1274,7 @@ def _yield_expr(tokens):
 def matcher(tokens, choices, repeat=False, optional=False):
     """The matcher finds a parse path among multiple choices.
     
-    The end of a recursion is indicated by a ParserError. When a child path has
+    The end of a recursion is indicated by a ``ParserError``. When a child path has
     failed, the tokens generator is "rolled back" to the last good position.
 
     Args:
@@ -1284,7 +1284,7 @@ def matcher(tokens, choices, repeat=False, optional=False):
         optional: matching optional or mandatory (does at least one match need to occur?)
 
     Returns:
-        list: The matching parse tree element, ``None'' for no matches
+        list: The matching parse tree element, ``None`` for no matches
 
     Raises:
         ParserError: Parser Error
@@ -1307,7 +1307,7 @@ def matcher(tokens, choices, repeat=False, optional=False):
     >>> matcher(t1, [_expr_stmt, _print_stmt, _del_stmt])
     [272, (1, 'print'), [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (3, '"Hello World"')]]]]]]]]]]]]]]]
 
-    Suppose the following example with an optional argument ``testlist'':
+    Suppose the following example with an optional argument ``testlist``:
     
     ::
     
@@ -1321,7 +1321,7 @@ def matcher(tokens, choices, repeat=False, optional=False):
     >>> matcher(t2, [_testlist], optional=True)
     [327, [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (2, '5')]]]]]]]]]]]]]]]
     
-    Suppose the following example with a repetition of the sequence ``comp_op expr'':
+    Suppose the following example with a repetition of the sequence ``comp_op expr``:
     
     ::
 
