@@ -310,9 +310,7 @@ def _small_stmt(tokens):
     result = [symbol.small_stmt]
 
     try:
-        result.append(matcher(tokens, [_expr_stmt, _print_stmt, _del_stmt,
-            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt, _exec_stmt,
-            _assert_stmt]))
+        result.append(matcher(tokens, [_expr_stmt, _print_stmt])) # TODO
     except ParserError:
         raise ParserError("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
@@ -331,14 +329,33 @@ def _expr_stmt(tokens):
     result = [symbol.expr_stmt]
     
     result.append(_testlist(tokens))
-    
-    while tokens.peek()[0] == token.OP and tokens.peek()[1] == "=":
+
+    def yield_expr_or_testlist(tokens):
+        return matcher(tokens, [_yield_expr, _testlist])
+
+    def option1(tokens):
+        result = []
+        result.append(_augassign(tokens))
+        result.append(yield_expr_or_testlist(tokens))
+        return result
+        
+    def option2(tokens):
+        result = []
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "="):
+            raise ParserError
         result.append((token.EQUAL, "="))
         tokens.next()
-        result.append(_testlist(tokens))
+        result.append(yield_expr_or_testlist(tokens))
+        return result
 
-    # TODO augassign / yield_expr
+    def option2repeat(tokens):
+        return matcher(tokens, [option2], repeat=True)
+
+    match = matcher(tokens, [option1, option2repeat], optional=True)
     
+    if match:
+        result = result + match
+
     return result
 
 def _augassign(tokens):
@@ -349,7 +366,51 @@ def _augassign(tokens):
         augassign: ('+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' |
         '<<=' | '>>=' | '**=' | '//=')
     """
-    raise NotImplementedError
+    result = [symbol.augassign]
+
+    if tokens.peek()[0] == token.OP:
+        if tokens.peek()[1] == "+=":
+            result.append((token.PLUSEQUAL, "+="))
+            tokens.next()
+        elif tokens.peek()[1] == "-=":
+            result.append((token.MINEQUAL, "-="))
+            tokens.next()
+        elif tokens.peek()[1] == "*=":
+            result.append((token.STAREQUAL, "*="))
+            tokens.next()
+        elif tokens.peek()[1] == "/=":
+            result.append((token.SLASHEQUAL, "/="))
+            tokens.next()
+        elif tokens.peek()[1] == "%=":
+            result.append((token.PERCENTEQUAL, "%="))
+            tokens.next()
+        elif tokens.peek()[1] == "&=":
+            result.append((token.AMPEREQUAL, "&="))
+            tokens.next()
+        elif tokens.peek()[1] == "|=":
+            result.append((token.VBAREQUAL, "|="))
+            tokens.next()
+        elif tokens.peek()[1] == "^=":
+            result.append((token.CIRCUMFLEXEQUAL, "^="))
+            tokens.next()
+        elif tokens.peek()[1] == "<<=":
+            result.append((token.LEFTSHIFTEQUAL, "<<="))
+            tokens.next()
+        elif tokens.peek()[1] == ">>=":
+            result.append((token.RIGHTSHIFTEQUAL, ">>="))
+            tokens.next()
+        elif tokens.peek()[1] == "**=":
+            result.append((token.DOUBLESTAREQUAL, "**="))
+            tokens.next()
+        elif tokens.peek()[1] == "//=":
+            result.append((token.DOUBLESLASHEQUAL, "//="))
+            tokens.next()
+        else:
+            raise ParserError
+    else:
+        raise ParserError
+
+    return result
 
 def _print_stmt(tokens):
     """Parse a print statement.
@@ -918,7 +979,7 @@ def _arith_expr(tokens):
         tokens.next()
         result.append(_term(tokens))
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "-":
-        result.append((token.MINUS, "+"))
+        result.append((token.MINUS, "-"))
         tokens.next()
         result.append(_term(tokens))
     
@@ -936,8 +997,26 @@ def _term(tokens):
     result = [symbol.term]
     result.append(_factor(tokens))
     
-    # TODO
+    def _factor_op(tokens):
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == "*":
+            result = (token.STAR, "*")
+            tokens.next()
+        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "/":
+            result = (token.SLASH, "/")
+            tokens.next()
+        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "%":
+            result = (token.PERCENT, "%")
+            tokens.next()
+        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "//":
+            result = (token.DOUBLESLASH, "//")
+            tokens.next()
+        else:
+            raise ParserError
+
+        return result
     
+    result = result + matcher(tokens, [(_factor_op, _factor)], optional=True, repeat=True)
+
     return result
     
 def _factor(tokens):
@@ -966,7 +1045,7 @@ def _power(tokens):
 
     if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
         result.append(_trailer(tokens))
-    
+
     # TODO factor, multiple trailers
     
     return result
@@ -992,10 +1071,10 @@ def _atom(tokens):
     if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
         result.append((token.LPAR, "("))
         tokens.next()
-        
+
         # TODO yield_expr
         result.append(_testlist_comp(tokens))
-        
+
         if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "("):
             result.append((token.RPAR, ")"))
             tokens.next()
@@ -1041,12 +1120,22 @@ def _testlist_comp(tokens):
 
         testlist_comp: test ( comp_for | (',' test)* [','] )
     """
-    result = [symbol.test]
+    result = [symbol.testlist_comp]
     
     result.append(_test(tokens))
+
+    # TODO comp_for
     
-    # TODO
+    while tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+        result.append((token.COMMA, ","))
+        tokens.next()
+        
+        result.append(_test(tokens))
     
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+        result.append((token.COMMA, ","))
+        tokens.next()
+
     return result
 
 def _lambdef(tokens):
@@ -1070,7 +1159,7 @@ def _trailer(tokens):
     if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
         result.append((token.LPAR, "("))
         tokens.next()
-        
+
         result = result + matcher(tokens, [[_arglist]], optional=True)
 
         if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
@@ -1136,7 +1225,7 @@ def _testlist(tokens):
 
     if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
         tokens.next()
-    
+
     return result
 
 def _dictorsetmaker(tokens):
@@ -1168,9 +1257,9 @@ def _arglist(tokens):
                                  |'**' test)
     """
     result = [symbol.arglist]
-    
+
     result.append(_argument(tokens))
-    
+
     # TODO
 
     return result
@@ -1269,7 +1358,16 @@ def _yield_expr(tokens):
 
         yield_expr: 'yield' [testlist]
     """
-    raise NotImplementedError
+    result = [symbol.yield_expr]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "yield"):
+        raise ParserError("Expecting `yield'")
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    result.append(matcher(tokens, [_testlist], optional=True))
+    
+    return result
 
 def matcher(tokens, choices, repeat=False, optional=False):
     """The matcher finds a parse path among multiple choices.
