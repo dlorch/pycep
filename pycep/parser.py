@@ -422,16 +422,35 @@ def _print_stmt(tokens):
     """
     result = [symbol.print_stmt]
 
+    # test (',' test)* [',']
+    def option1(tokens):
+        result = []
+        result.append(_test(tokens))
+        result = result + matcher(tokens, [comma_test], repeat=True, optional=True)
+        
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+            result.append((token.COMMA, ","))
+            tokens.next()
+        
+        return result
+
+    # (',' test)
+    def comma_test(tokens):
+        result = []
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise ParserError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        
+        result.append(_test(tokens))
+
+        return result
+
     if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "print":
         result.append((tokens.peek()[0], tokens.peek()[1]))
         tokens.next()
         
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ">>":
-            raise NotImplementedError
-        else:
-            result.append(_test(tokens))
-        
-        # TODO: test is optional
+        result = result + matcher(tokens, [option1]) # TODO
     else:
         raise parser.ParserError
 
