@@ -11,6 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   Get the sources from https://github.com/dlorch/pycep/
+
    references.rst
    pycep.rst
 
