@@ -9,3 +9,4 @@
 .. toctree::
 
    pycep.parser
+   pycep.analyzer
