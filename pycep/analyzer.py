@@ -33,7 +33,7 @@ def parse(source):
             Print -> None [label = "dest"];
             Print -> Str [label = "values"];
             Print -> True [label = "nl"];
-            Str -> \\'Hello World\\' [label = "s"];
+            Str -> "\\'Hello World\\'" [label = "s"];
         }
 
     See also:
