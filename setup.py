@@ -8,6 +8,10 @@ setup(
     description = "Python Inception",
     url = "http://github.com/dlorch/pycep/",
     classifiers = [
-        "Development Status :: 1 - Planning",
+        "Development Status :: 2 - Pre-Alpha",
+        "Topic :: Software Development :: Interpreters"
     ],
+    entry_points = {
+        'console_scripts': ['pycep=pycep.cli:main'],
+    }
 )
