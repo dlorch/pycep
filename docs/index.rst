@@ -64,6 +64,30 @@ Try it out!
                $("#result").text(JSON.parse(data));
            });
        })
+       
+       var base_url = "https://raw.githubusercontent.com/dlorch/pycep/master/pycep/tests/programs/";
+       var sample_programs = ["beer.py", "classes.py", "cliexception.py", "fib.py", "friends.py",
+           "functions.py", "helloworld.py", "parentsbabies.py", "primes.py", "queens.py",
+           "regex.py"];
+       var default_program = "helloworld.py";
+       
+       sample_programs.forEach(function(program) {
+           var option = $('<option>').text(program);
+           if(program == default_program) {
+               option.attr('selected', true);
+           }
+           $("#snippets").append(option); 
+       });
+       
+       $("#snippets").change(function(program) {
+           $.ajax({
+               type: "GET",
+               url: base_url + $("#snippets").val(),
+               dataType: "text"
+           }).done(function(data) {
+               editor.setValue(data, -1);
+           });
+       });
    </script>
 
 Implementation Status
