@@ -16,18 +16,27 @@ class TestAnalyzer(unittest.TestCase):
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
     
     def assertAstEqual(self, first, second, msg=None):
-        if type(first) != type(second):
-            self.fail("%s != %s" % (str(first), str(second)))
-        elif isinstance(first, ast.AST):
+        def astShallowEqual(first, second):
+            """ Shallow equality, don't recurse into sub-items """
             for (fieldname, value) in ast.iter_fields(first):
                 value2 = getattr(second, fieldname, None)
-                self.assertAstEqual(value, value2)
-        elif isinstance(first, list):
-            if len(first) != len(second):
-                self.fail("%s != %s" % (str(first), str(second)))
+                if isinstance(value, list):
+                    if len(value) != len(value2):
+                        return False
+                else:
+                    if value != value2:
+                        return False
+            return True
+        
+        if type(first) != type(second):
+            self.fail("%s != %s" % (ast.dump(first), ast.dump(second)))
+        elif isinstance(first, ast.AST):
+            if not astShallowEqual(first, second):
+                self.fail("%s != %s" % (ast.dump(first), ast.dump(second)))
             else:
-                for idx, value in enumerate(first):
-                    value2 = second[idx]
-                    self.assertAstEqual(value, value2)
-        else:
-            self.assertEquals(first, second, msg)
+                for (fieldname, value) in ast.iter_fields(first):
+                    value2 = getattr(second, fieldname, None)
+                    if isinstance(value, list):
+                        for idx, v in enumerate(value):
+                            v2 = value2[idx]
+                            self.assertAstEqual(v, v2)
