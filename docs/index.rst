@@ -19,6 +19,56 @@ of what still needs to be done.
 
 .. image:: _static/pycep_stages.svg
 
+Try it out!
+-----------
+
+.. raw:: html
+
+   <style type="text/css" media="screen">
+       #editor { 
+           height: 250px;
+           border: 1px solid #DDD;
+           border-radius: 4px;
+           border-bottom-right-radius: 0px;
+           margin-top: 5px;
+           margin-bottom: 5px;
+       }
+       #result {
+           font: 12px/normal 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+           color: white;
+           background-color: black;
+       }
+   </style>
+   
+   <input type="submit" id="run" value="Run" />
+   <div id="editor">print 'Hello, world!'</div>
+   <pre id="result"></pre>
+   
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.2/ace.js" type="text/javascript" charset="utf-8"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0-alpha1/jquery.min.js" type="text/javascript"></script>
+   <script>
+       var editor = ace.edit("editor");
+       editor.getSession().setMode("ace/mode/python");
+   
+       $("#run").click(function() {
+           $("#run").prop("disabled", true);
+           $.ajax({
+               type: "POST",
+               url: "https://od7lk1ozxj.execute-api.eu-west-1.amazonaws.com/prod/pycep",
+               data: JSON.stringify({
+                   "source": JSON.stringify(ace.edit("editor").getValue())
+               }),
+               dataType: "text"
+           }).done(function(data) {
+               $("#run").prop("disabled", false);
+               $("#result").text(JSON.parse(data));
+           });
+       })
+   </script>
+
+Implementation Status
+---------------------
+
 +-------------+---------+-----------------------------------------------------+ 
 | Module      | Status  | Comments                                            | 
 +=============+=========+=====================================================+ 
