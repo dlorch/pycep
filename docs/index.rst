@@ -38,8 +38,9 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   references.rst
    pycep.rst
+   references.rst
+   tools.rst
 
 Indices and tables
 ==================
