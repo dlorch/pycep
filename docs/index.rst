@@ -40,6 +40,7 @@ Try it out!
        }
    </style>
    
+   <select id="snippets"></select>
    <input type="submit" id="run" value="Run" />
    <div id="editor">print 'Hello, world!'</div>
    <pre id="result"></pre>
