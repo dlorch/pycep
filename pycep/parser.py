@@ -359,7 +359,7 @@ def _expr_stmt(tokens):
     return result
 
 def _augassign(tokens):
-    """Parse an augassign statement.
+    """Parse an augmented assign statement.
 
     ::
 
