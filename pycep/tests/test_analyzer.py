@@ -33,6 +33,10 @@ class TestAnalyzer(unittest.TestCase):
                 if isinstance(value, list):
                     if len(value) != len(value2):
                         return False
+                # Fields can be AST items too, e.g. ast.arguments(),
+                # ast.Store(), ast.Load(), ast.Param(). Recurse into those items
+                elif isinstance(value, ast.AST):
+                    return astShallowEqual(value, value2)
                 else:
                     if value != value2:
                         return False
@@ -40,7 +44,7 @@ class TestAnalyzer(unittest.TestCase):
             return True
         
         if type(first) != type(second):
-            self.fail("Expected: %s\n\nActual: %s" % (dump(first), dump(second)))
+            self.fail("%s != %s" % (first, second))
         elif isinstance(first, ast.AST):
             if not astShallowEqual(first, second):
                 self.fail("Expected: %s\n\nActual: %s" % (dump(first), dump(second)))
