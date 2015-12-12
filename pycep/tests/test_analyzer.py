@@ -44,7 +44,7 @@ class TestAnalyzer(unittest.TestCase):
             return True
         
         if type(first) != type(second):
-            self.fail("%s != %s" % (first, second))
+            self.fail("Expected: %s\n\nActual: %s" % (dump(first), dump(second)))
         elif isinstance(first, ast.AST):
             if not astShallowEqual(first, second):
                 self.fail("Expected: %s\n\nActual: %s" % (dump(first), dump(second)))
@@ -97,7 +97,7 @@ def dump(node, annotate_fields=True, include_attributes=False, indent='  '):
                 lines[-1] += ']'
             return '\n'.join(lines)
         return repr(node)
-    
-    if not isinstance(node, ast.AST):
-        raise TypeError('expected AST, got %r' % node.__class__.__name__)
+
+    if not isinstance(node, ast.AST) and not isinstance(node, list):
+        raise TypeError('expected AST or list, got %r' % node.__class__.__name__)
     return _format(node)
