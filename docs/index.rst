@@ -38,10 +38,10 @@ Try it out!
    <select id="snippets"></select>
    <input type="submit" id="run" value="Run" />
    <div id="editor">def fib(n):
-   a, b = 0, 1
-   while a < n:
-       print a
-       a, b = b, a+b
+       a, b = 0, 1
+       while a < n:
+           print a
+           a, b = b, a+b
 
    fib(1000)</div>
    <pre id="result"></pre>
