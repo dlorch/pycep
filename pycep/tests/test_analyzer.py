@@ -57,6 +57,8 @@ class TestAnalyzer(unittest.TestCase):
                         for idx, v in enumerate(value):
                             v2 = value2[idx]
                             self.assertAstEqual(v, v2)
+                    else:
+                        self.assertAstEqual(value, value2)
 
 def dump(node, annotate_fields=True, include_attributes=False, indent='  '):
     """
