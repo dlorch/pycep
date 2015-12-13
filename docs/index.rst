@@ -67,7 +67,7 @@ Try it out!
        var sample_programs = ["beer.py", "classes.py", "cliexception.py", "fib.py", "friends.py",
            "functions.py", "helloworld.py", "parentsbabies.py", "primes.py", "queens.py",
            "regex.py"];
-       var default_program = "helloworld.py";
+       var default_program = "fib.py";
        
        sample_programs.forEach(function(program) {
            var option = $('<option>').text(program);
@@ -98,7 +98,7 @@ Implementation Status
 +-------------+---------+-----------------------------------------------------+ 
 | Parser      | 5%      | Parsing a handful of example programs.              |
 +-------------+---------+-----------------------------------------------------+ 
-| Analyzer    | 1%      | Analyzing very few example programs.                | 
+| Analyzer    | 2%      | Analyzing very few example programs.                | 
 +-------------+---------+-----------------------------------------------------+ 
 | Interpreter | 0%      | Forwarding calls to ``exec``                        | 
 +-------------+---------+-----------------------------------------------------+
