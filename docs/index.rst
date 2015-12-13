@@ -112,7 +112,7 @@ Implementation Status
 +-------------+---------+-----------------------------------------------------+ 
 | Parser      | 5%      | Parsing a handful of example programs.              |
 +-------------+---------+-----------------------------------------------------+ 
-| Analyzer    | 2%      | Analyzing very few example programs.                | 
+| Analyzer    | 5%      | Analyzing a handful of example programs.            | 
 +-------------+---------+-----------------------------------------------------+ 
 | Interpreter | 0%      | Forwarding calls to ``exec``                        | 
 +-------------+---------+-----------------------------------------------------+
