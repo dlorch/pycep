@@ -14,8 +14,6 @@ after the Python standard library, thus have identical method signatures and
 return the same data structures as those offered by Python itself, while being
 entirely written in Python.
 
-.. image:: _static/pycep_stages.svg
-
 Try it out!
 -----------
 
@@ -90,6 +88,8 @@ Try it out!
 
 Implementation Status
 ---------------------
+
+.. image:: _static/pycep_stages.svg
 
 +-------------+---------+-----------------------------------------------------+ 
 | Module      | Status  | Comments                                            | 
