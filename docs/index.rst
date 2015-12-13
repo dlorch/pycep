@@ -116,7 +116,8 @@ Sources
 
 Get the sources from https://github.com/dlorch/pycep/
 
-Contents:
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2
