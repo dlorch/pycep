@@ -37,7 +37,13 @@ Try it out!
    
    <select id="snippets"></select>
    <input type="submit" id="run" value="Run" />
-   <div id="editor">print 'Hello, world!'</div>
+   <div id="editor">def fib(n):
+       a, b = 0, 1
+       while a < n:
+           print a
+           a, b = b, a+b
+   
+   fib(1000)</div>
    <pre id="result"></pre>
    
    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.2/ace.js" type="text/javascript" charset="utf-8"></script>
@@ -65,7 +71,7 @@ Try it out!
        var sample_programs = ["beer.py", "classes.py", "cliexception.py", "fib.py", "friends.py",
            "functions.py", "helloworld.py", "parentsbabies.py", "primes.py", "queens.py",
            "regex.py"];
-       var default_program = "helloworld.py";
+       var default_program = "fib.py";
        
        sample_programs.forEach(function(program) {
            var option = $('<option>').text(program);
