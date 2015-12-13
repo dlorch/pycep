@@ -11,6 +11,10 @@ class TestAnalyzer(unittest.TestCase):
     def setUp(self):
         self.addTypeEqualityFunc(_ast.Module, "assertAstEqual")
 
+    def test_beer(self):
+        source = open(path.join(SAMPLE_PROGRAMS, "beer.py")).read()
+        self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
+
     def test_fib(self):
         source = open(path.join(SAMPLE_PROGRAMS, "fib.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))

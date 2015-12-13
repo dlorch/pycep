@@ -167,7 +167,11 @@ def _parse(parse_tree, ctx=ast.Load()):
                 
                 return node
             else:
-                raise NotImplementedError("expr_stmt -> augassign")
+                node = ast.AugAssign()
+                node.target = _parse(values[0], ast.Store())
+                node.op = _parse(values[1], ast.Store())
+                node.value = _parse(values[2], ast.Store())
+                return node
         elif len(values) == 1:
             result = _parse(values[0], ctx)
             
@@ -183,7 +187,10 @@ def _parse(parse_tree, ctx=ast.Load()):
         else:
             raise NotImplementedError("expr_stmt")
     elif key == symbol.augassign:
-        raise NotImplementedError("augassign")
+        if values[0][0] == token.MINEQUAL:
+            return ast.Sub()
+        else:
+            raise NotImplementedError("augassign: " + token.tok_name[values[0][0]])
     elif key == symbol.print_stmt:
         node = ast.Print()
         node.dest = None # TODO
@@ -303,8 +310,11 @@ def _parse(parse_tree, ctx=ast.Load()):
         if values[0][0] == token.LESS:
             node = ast.Lt()
             return [node]
+        elif values[0][0] == token.GREATER:
+            node = ast.Gt()
+            return [node]
         else:
-            raise NotImplementedError
+            raise NotImplementedError(values)
     elif key == symbol.expr:
         # TODO
         return _parse(values[0], ctx)
@@ -336,8 +346,22 @@ def _parse(parse_tree, ctx=ast.Load()):
         else:
             raise NotImplementedError
     elif key == symbol.term:
-        # TODO
-        return _parse(values[0], ctx)
+        if len(values) == 3:
+            node = ast.BinOp()
+            node.left = _parse(values[0], ctx)
+            
+            if values[1][0] == token.PERCENT:
+                node.op = ast.Mod()
+            else:
+                raise NotImplementedError("Token %s", token.tok_name[values[1][0]])
+
+            #raise NotImplementedError(values[2])
+            node.right = _parse(values[2], ctx)
+            return node
+        elif len(values) == 1:
+            return _parse(values[0], ctx)
+        else:
+            raise NotImplementedError
     elif key == symbol.factor:
         # TODO
         return _parse(values[0], ctx)
@@ -369,12 +393,22 @@ def _parse(parse_tree, ctx=ast.Load()):
             node = ast.Num()
             node.n = int(values[0][1]) # TODO
             return node
+        elif values[0][0] == token.LPAR:
+            node = ast.Tuple()
+            node.elts = _parse(values[1], ctx)
+            node.ctx = ctx
+            # TODO other values?
+            return node
         else:
             return _parse(values[0], ctx) # TODO
     elif key == symbol.listmaker:
         raise NotImplementedError("listmaker")
     elif key == symbol.testlist_comp:
-        raise NotImplementedError("testlist_comp")
+        result = []
+        for value in values:
+            if value[0] != token.COMMA:
+                result.append(_parse(value, ctx))
+        return result
     elif key == symbol.lambdef:
         raise NotImplementedError("lambdef")
     elif key == symbol.trailer:
@@ -429,7 +463,7 @@ def _parse(parse_tree, ctx=ast.Load()):
     elif key == symbol.yield_expr:
         raise NotImplementedError("yield_expr")
     elif key == token.STRING:
-        node = ast.Str(values[0][1:-1].decode("string-escape"))
+        node = ast.Str(ast.literal_eval(values[0])) # TODO
         return node
     else:
         raise ValueError("Unexpected symbol/token `%d'" % key)
