@@ -318,8 +318,23 @@ def _parse(parse_tree, ctx=ast.Load()):
         # TODO
         return _parse(values[0], ctx)
     elif key == symbol.arith_expr:
-        # TODO
-        return _parse(values[0], ctx)
+        if len(values) == 3:
+            node = ast.BinOp()
+            node.left = _parse(values[0], ctx)
+            
+            if values[1][0] == token.PLUS:
+                node.op = ast.Add()
+            elif values[1][0] == token.MINUS:
+                node.op = ast.Sub()
+            else:
+                raise ValueError("Unexpected symbol/token %s" % values[1])
+            
+            node.right = _parse(values[2], ctx)
+            return node
+        elif len(values) == 1:
+            return _parse(values[0], ctx)
+        else:
+            raise NotImplementedError
     elif key == symbol.term:
         # TODO
         return _parse(values[0], ctx)
