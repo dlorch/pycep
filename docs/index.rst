@@ -66,7 +66,7 @@ Try it out!
                $("#result").text(JSON.parse(data));
            }).fail(function(jqXHR, textStatus) {
                $("#run").prop("disabled", false);
-               $("#result").text("Error: " + textStatus);
+               $("#result").text(textStatus);
            });
        })
        
