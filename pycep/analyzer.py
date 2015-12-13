@@ -194,7 +194,13 @@ def _parse(parse_tree, ctx=ast.Load()):
     elif key == symbol.print_stmt:
         node = ast.Print()
         node.dest = None # TODO
-        node.values = [_parse(values[1], ctx)] # TODO
+        node.values = []
+    
+        # TODO ">>"
+        for value in values[1:]:
+            if value[0] != token.COMMA:
+                node.values.append(_parse(value, ctx))
+
         node.nl = True # TODO
         return node
     elif key == symbol.del_stmt:
