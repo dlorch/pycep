@@ -63,7 +63,12 @@ Try it out!
                dataType: "text"
            }).done(function(data) {
                $("#run").prop("disabled", false);
-               $("#result").text(JSON.parse(data));
+               result = JSON.parse(data);
+               if(result.errorMessage) {
+                   $("#result").text("Error: " + result.errorMessage);
+               } else {
+                   $("#result").text(result);
+               }
            }).fail(function(jqXHR, textStatus) {
                $("#run").prop("disabled", false);
                $("#result").text(textStatus);
