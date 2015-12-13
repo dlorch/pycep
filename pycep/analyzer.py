@@ -48,7 +48,7 @@ def parse(source):
 
     return tree
 
-def _parse(parse_tree):
+def _parse(parse_tree, ctx=ast.Load()):
     key, values = parse_tree[0], parse_tree[1:]
     
     if key == symbol.single_input:
@@ -56,7 +56,13 @@ def _parse(parse_tree):
     elif key == symbol.file_input:
         node = ast.Module()
         node.body = []
-        node.body.append(_parse(values[0])) # TODO
+        
+        for value in values[:-2]:
+            node.body.append(_parse(value, ctx))
+
+        assert values[-2][0] == token.NEWLINE
+        assert values[-1][0] == token.ENDMARKER
+        
         return node
     elif key == symbol.eval_input:
         raise NotImplementedError("eval_input")
@@ -67,32 +73,121 @@ def _parse(parse_tree):
     elif key == symbol.decorated:
         raise NotImplementedError("decorated")
     elif key == symbol.funcdef:
-        raise NotImplementedError("funcdef")
+        node = ast.FunctionDef()
+        assert len(values) == 5
+        assert values[0][0] == token.NAME
+        assert values[0][1] == "def"
+        assert values[1][0] == token.NAME
+        node.name = values[1][1]
+        node.args = _parse(values[2], ctx)
+        assert values[3][0] == token.COLON
+        assert values[3][1] == ":"
+        node.body = _parse(values[4], ctx)
+        node.decorator_list = [] # TODO
+        return node
     elif key == symbol.parameters:
-        raise NotImplementedError("parameters")
-    elif key == symbol.varargslist:
-        raise NotImplementedError("varargslist")
+        node = ast.arguments()
+        assert len(values) == 3
+        assert values[0][0] == token.LPAR
+        assert values[0][1] == "("
+        assert values[1][0] == symbol.varargslist
+        
+        args = []
+        vararg = []
+        kwarg = []
+        defaults = []
+        
+        for value in values[1][1:]:
+            if value[0] == symbol.fpdef:
+                if value[1][0] == token.NAME:
+                    n = ast.Name()
+                    n.id = value[1][1]
+                    n.ctx = ast.Param()
+                    args.append(n)
+                else:
+                    raise NotImplementedError
+            else:
+                raise NotImplementedError
+        
+        if len(args) > 0:
+            node.args = args
+        else:
+            node.args = None
+
+        if len(vararg) > 0:
+            node.vararg = vararg
+        else:
+            node.vararg = None
+            
+        if len(kwarg) > 0:
+            node.kwarg = kwarg
+        else:
+            node.kwarg = None
+            
+        node.defaults = defaults
+        
+        assert values[2][0] == token.RPAR
+        assert values[2][1] == ")"
+        return node
     elif key == symbol.fpdef:
-        raise NotImplementedError("fpdef")
+        raise NotImplementedError(values)
     elif key == symbol.fplist:
         raise NotImplementedError("fplist")
     elif key == symbol.stmt:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.simple_stmt:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.small_stmt:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.expr_stmt:
-        raise NotImplementedError("expr_stmt")
+        if len(values) > 1:
+            if values[1][0] == token.EQUAL:
+                node = ast.Assign()
+
+                if len(values[0]) > 2: # TODO
+                    targets = ast.Tuple()
+                    targets.ctx = ast.Store()
+                    targets.elts = _parse(values[0], ctx=targets.ctx)
+                else:
+                    targets = _parse(values[0], ctx=ast.Store())
+                    
+                node.targets = [targets] # TODO why is this an array but value is not?
+                
+                if len(values[2]) > 2:
+                    value = ast.Tuple()
+                    value.ctx = ast.Load()
+                    value.elts = _parse(values[2], ctx=value.ctx)
+                else:
+                    value = _parse(values[2], ctx=ast.Load())
+                
+                node.value = value
+                
+                return node
+            else:
+                raise NotImplementedError("expr_stmt -> augassign")
+        elif len(values) == 1:
+            result = _parse(values[0], ctx)
+            
+            # if the return value of an expression isn't used or stored, it is
+            # wrapped into an Expr() node
+            if isinstance(result, ast.Call): 
+                node = ast.Expr()
+                node.value = result
+            else:
+                node = result
+            
+            return node
+        else:
+            raise NotImplementedError("expr_stmt")
     elif key == symbol.augassign:
         raise NotImplementedError("augassign")
     elif key == symbol.print_stmt:
         node = ast.Print()
         node.dest = None # TODO
-        node.values = [_parse(values[1])] # TODO
+        node.values = [_parse(values[1], ctx)] # TODO
         node.nl = True # TODO
         return node
     elif key == symbol.del_stmt:
@@ -130,11 +225,26 @@ def _parse(parse_tree):
     elif key == symbol.assert_stmt:
         raise NotImplementedError("assert_stmt")
     elif key == symbol.compound_stmt:
-        raise NotImplementedError("compound_stmt")
+        # TODO
+        return _parse(values[0], ctx)
     elif key == symbol.if_stmt:
         raise NotImplementedError("if_stmt")
     elif key == symbol.while_stmt:
-        raise NotImplementedError("while_stmt")
+        node = ast.While()
+
+        assert len(values) == 4    
+        assert values[0][0] == token.NAME
+        assert values[0][1] == "while"
+        
+        node.test = _parse(values[1], ctx)
+        
+        assert values[2][0] == token.COLON
+        assert values[2][1] == ":"
+        
+        node.body = _parse(values[3], ctx)
+        node.orelse = [] # TODO
+
+        return node
     elif key == symbol.for_stmt:
         raise NotImplementedError("for_stmt")
     elif key == symbol.try_stmt:
@@ -146,7 +256,20 @@ def _parse(parse_tree):
     elif key == symbol.except_clause:
         raise NotImplementedError("except_clause")
     elif key == symbol.suite:
-        raise NotImplementedError("suite")
+        if values[0][0] == token.NEWLINE:
+            assert values[1][0] == token.INDENT
+            assert values[1][1] == ''
+            result = []
+            
+            for value in values[2:-1]:
+                result.append(_parse(value, ctx))
+            
+            assert values[-1][0] == token.DEDENT
+            assert values[-1][1] == ''
+        else:
+            raise NotImplementedError
+
+        return result
     elif key == symbol.testlist_safe:
         raise NotImplementedError("testlist_safe")
     elif key == symbol.old_test:
@@ -155,48 +278,84 @@ def _parse(parse_tree):
         raise NotImplementedError("old_lambdef")
     elif key == symbol.test:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.or_test:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.and_test:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.not_test:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.comparison:
-        # TODO
-        return _parse(values[0])
+        if len(values) == 3: # TODO only doing particular cases here
+            node = ast.Compare()
+            node.left = _parse(values[0], ctx)
+            node.ops = _parse(values[1], ctx)
+            node.comparators = [_parse(values[2], ctx)]
+            return node
+        elif len(values) == 1:
+            return _parse(values[0], ctx)
+        else:
+            raise NotImplementedError
     elif key == symbol.comp_op:
-        raise NotImplementedError("comp_op")
+        if values[0][0] == token.LESS:
+            node = ast.Lt()
+            return [node]
+        else:
+            raise NotImplementedError
     elif key == symbol.expr:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.xor_expr:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.and_expr:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.shift_expr:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.arith_expr:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.term:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.factor:
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.power:
+        if len(values) > 1:
+            if values[0][0] == symbol.atom and values[1][0] == symbol.trailer \
+                and values[1][1][0] == token.LPAR \
+                and values[1][3][0] == token.RPAR:
+
+                node = ast.Call()
+                node.func = _parse(values[0], ctx)
+                node.args = _parse(values[1][2], ctx)
+                node.keywords = [] # TODO
+                node.starargs = None # TODO
+                node.kwargs = None # TODO
+
+                return node
+            else:
+                raise NotImplementedError
         # TODO
-        return _parse(values[0])
+        return _parse(values[0], ctx)
     elif key == symbol.atom:
-        # TODO
-        return _parse(values[0])
+        if values[0][0] == token.NAME:
+            node = ast.Name()
+            node.id = values[0][1]
+            node.ctx = ctx
+            return node
+        elif values[0][0] == token.NUMBER:
+            node = ast.Num()
+            node.n = int(values[0][1]) # TODO
+            return node
+        else:
+            return _parse(values[0], ctx) # TODO
     elif key == symbol.listmaker:
         raise NotImplementedError("listmaker")
     elif key == symbol.testlist_comp:
@@ -214,15 +373,30 @@ def _parse(parse_tree):
     elif key == symbol.exprlist:
         raise NotImplementedError("exprlist")
     elif key == symbol.testlist:
-        raise NotImplementedError("testlist")
+        if len(values) > 1:
+            result = []
+            for value in values:
+                if value[0] != token.COMMA:
+                    result.append(_parse(value, ctx))
+            return result
+        elif len(values) == 1:
+            return _parse(values[0], ctx)
+        else:
+            raise NotImplementedError
     elif key == symbol.dictorsetmaker:
         raise NotImplementedError("dictorsetmaker")
     elif key == symbol.classdef:
         raise NotImplementedError("classdef")
     elif key == symbol.arglist:
-        raise NotImplementedError("arglist")
+        result = []
+
+        for value in values:
+            result.append(_parse(value, ctx))
+            
+        return result
     elif key == symbol.argument:
-        raise NotImplementedError("argument")
+        # TODO
+        return _parse(values[0], ctx)
     elif key == symbol.list_iter:
         raise NotImplementedError("list_iter")
     elif key == symbol.list_for:
