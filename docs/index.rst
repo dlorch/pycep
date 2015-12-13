@@ -12,10 +12,7 @@ PyCep was created as study project to teach `myself <https://github.com/dlorch>`
 about writing interpreters. PyCep's externally exported methods are modelled
 after the Python standard library, thus have identical method signatures and
 return the same data structures as those offered by Python itself, while being
-entirely written in Python. A set of
-`test suites <https://github.com/dlorch/pycep/tree/master/pycep/tests>`_ ensures
-that this equality is indeed obeyed. The test suite also serves as a TODO list
-of what still needs to be done.
+entirely written in Python.
 
 .. image:: _static/pycep_stages.svg
 
@@ -105,6 +102,17 @@ Implementation Status
 +-------------+---------+-----------------------------------------------------+ 
 | Interpreter | 0%      | Forwarding calls to ``exec``                        | 
 +-------------+---------+-----------------------------------------------------+
+
+Design Goals
+------------
+
+* External methods have the `same signatures and produce the same results <https://github.com/dlorch/pycep/tree/master/pycep/tests>`_
+  as those provided by the standard Python library
+* Each of the interpreter's phase is built upon the previous phase, can be
+  intercepted and studied independently of the other parts of the system
+
+Sources
+-------
 
 Get the sources from https://github.com/dlorch/pycep/
 
