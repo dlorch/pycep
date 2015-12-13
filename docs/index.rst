@@ -64,6 +64,9 @@ Try it out!
            }).done(function(data) {
                $("#run").prop("disabled", false);
                $("#result").text(JSON.parse(data));
+           }).fail(function(jqXHR, textStatus) {
+               $("#run").prop("disabled", false);
+               $("#result").text("Error: " + textStatus);
            });
        })
        
