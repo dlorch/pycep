@@ -108,7 +108,7 @@ Design Goals
 
 * External methods have the `same signatures and produce the same results <https://github.com/dlorch/pycep/tree/master/pycep/tests>`_
   as those provided by the standard Python library
-* Each of the interpreter's phase is built upon the previous phase, can be
+* Each of the interpreter's phases is built upon the previous phase, can be
   intercepted and studied independently of the other parts of the system
 
 Sources
