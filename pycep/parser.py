@@ -1460,8 +1460,8 @@ def _argument(tokens):
 
         argument: test [comp_for] | test '=' test
     """
-    # This grammar is *not* left-factored (see "theory") and has to be
-    # rewritten as follows (ε denotes the empty string):
+    # This grammar is *not* left-factored and has to be rewritten as follows
+    # (ε denotes the empty string):
     #
     #   argument: test option
     #   option:   ε | comp_for | '=' test
