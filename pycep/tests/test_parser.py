@@ -17,6 +17,11 @@ class TestParser(unittest.TestCase):
         self.assertEquals(parser.suite(source).totuple(),
             pycep.parser.suite(source, totuple=True))
 
+    def test_friends(self):
+        source = open(path.join(SAMPLE_PROGRAMS, "friends.py")).read()
+        self.assertEquals(parser.suite(source).totuple(),
+            pycep.parser.suite(source, totuple=True))
+
     def test_functions(self):
         source = open(path.join(SAMPLE_PROGRAMS, "functions.py")).read()
         self.assertEquals(parser.suite(source).totuple(),

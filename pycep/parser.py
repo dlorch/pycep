@@ -16,7 +16,7 @@ The issue with this production is that the recursive-descent parser could go
 down the first path, return with a success and never consider the second path.
 We can left-factor the grammar by making a new nonterminal ``option`` to
 represent the two alternatives for the symbols following the common prefix:
-    
+
 ::
     
     argument: test option
@@ -138,8 +138,8 @@ def _file_input(tokens):
     except StopIteration:
         pass # raise "Expecting ENDMARKER" in next block
 
-    # Training NEWLINE not defined in grammar, but Python's parser always
-    # appends it, thus emulate this behavior 
+    # No trailing NEWLINE defined in grammar, but Python's parser always
+    # appends it, thus imitate this behavior 
     result.append((token.NEWLINE, ''))
 
     if tokens.next()[0] != token.ENDMARKER:
@@ -290,15 +290,11 @@ def _stmt(tokens):
     """
     result = [symbol.stmt]
 
-    # TODO: replace this by "choice" between simple_stmt and compound_stmt
-    if (tokens.peek()[0] == token.NAME and tokens.peek()[1] in \
-        ["if", "while", "try", "with", "def", "class"]):
-        result.append(_compound_stmt(tokens))
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "@":
-        result.append(_compound_stmt(tokens))
-    else:
-        result.append(_simple_stmt(tokens))
-
+    try:
+        result.append(matcher(tokens, [_simple_stmt, _compound_stmt]))
+    except ParserError:
+        raise ParserError("Expecting simple_stmt | compound_stmt")
+            
     return result
 
 def _simple_stmt(tokens):
@@ -312,6 +308,7 @@ def _simple_stmt(tokens):
 
     result.append(_small_stmt(tokens))
 
+    # TODO this is incorrect, needs to be rewritten with matcher
     while tokens.peek()[0] == token.OP and tokens.peek()[1] == ";":
         result.append((token.SEMI, ";"))
         tokens.next()
@@ -457,6 +454,7 @@ def _print_stmt(tokens):
     def option1(tokens):
         result = []
         result.append(_test(tokens))
+
         result = result + matcher(tokens, [comma_test], repeat=True, optional=True)
         
         if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
@@ -480,10 +478,10 @@ def _print_stmt(tokens):
     if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "print":
         result.append((tokens.peek()[0], tokens.peek()[1]))
         tokens.next()
-        
+
         result = result + matcher(tokens, [option1]) # TODO
     else:
-        raise parser.ParserError
+        raise ParserError
 
     return result
 
@@ -670,7 +668,7 @@ def _compound_stmt(tokens):
     result = [symbol.compound_stmt]
   
     try:
-        result.append(matcher(tokens, [_while_stmt, _funcdef]))
+        result.append(matcher(tokens, [_while_stmt, _funcdef, _for_stmt]))
     except ParserError:
         raise ParserError("Expecting: if_stmt | while_stmt | for_stmt | "
             "try_stmt | with_stmt | funcdef | classdef | decorated")
@@ -726,7 +724,51 @@ def _for_stmt(tokens):
 
         for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]
     """
-    raise NotImplementedError
+    result = [symbol.for_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "for"):
+        raise ParserError
+    result.append((token.NAME, "for"))
+    tokens.next()
+
+    result.append(_exprlist(tokens))
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
+        raise ParserError
+    result.append((token.NAME, "in"))
+    tokens.next()
+
+    result.append(_testlist(tokens))
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+        raise ParserError
+    result.append((token.COLON, ":"))
+    tokens.next()
+    
+    result.append(_suite(tokens))
+    
+    def optional_else(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "else"):
+            raise ParserError
+        result.append((token.NAME, "else"))
+        tokens.next()
+
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+            raise ParserError
+        result.append((token.COLON, ":"))
+        tokens.next()
+
+        result.append(_suite(tokens))
+
+        return result
+    
+    option = matcher(tokens, [optional_else], optional=True)
+    if option:
+        result.append(option)
+
+    return result
 
 def _try_stmt(tokens):
     """Parse a try statement.
@@ -967,7 +1009,7 @@ def _expr(tokens):
     """
     result = [symbol.expr]
     result.append(_xor_expr(tokens))
-    
+
     # TODO | xor_expr
     
     return result
@@ -1091,13 +1133,13 @@ def _power(tokens):
         power: atom trailer* ['**' factor]
     """
     result = [symbol.power]
-    result.append(_atom(tokens))
-
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
-        result.append(_trailer(tokens))
-
-    # TODO factor, multiple trailers
     
+    result.append(_atom(tokens))
+    
+    result = result + matcher(tokens, [[_trailer]], optional=True, repeat=True)
+
+    # TODO ['**' factor]
+
     return result
 
 def _atom(tokens):
@@ -1129,7 +1171,15 @@ def _atom(tokens):
             result.append((token.RPAR, ")"))
             tokens.next()
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
-        raise NotImplementedError
+        result.append((token.LSQB, "["))
+        tokens.next()
+        listmaker = matcher(tokens, [_listmaker], optional=True)
+        if listmaker:
+            result.append(listmaker)
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "]"):
+            raise ParserError
+        result.append((token.RSQB, "]"))
+        tokens.next()
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "{":
         raise NotImplementedError
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "`":
@@ -1161,7 +1211,37 @@ def _listmaker(tokens):
 
         listmaker: test ( list_for | (',' test)* [','] )
     """
-    raise NotImplementedError
+    result = [symbol.listmaker]
+    
+    result.append(_test(tokens))
+
+    # ',' test
+    def comma_test(tokens):
+        result = []
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise ParserError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        result.append(_test(tokens))
+        return result
+    
+    # (',' test)*
+    def comma_test_repeat(tokens):
+        return matcher(tokens, [comma_test], repeat=True)
+
+    # (',' test)* [',']
+    def comma_test_repeat_comma(tokens):
+        result = comma_test_repeat(tokens)
+        if len(result) == 0:
+            raise ParserError
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+            result.append((token.COMMA, ","))
+            tokens.next()
+        return result
+    
+    result = result + matcher(tokens, [_list_for, comma_test_repeat_comma])
+
+    return result
 
 def _testlist_comp(tokens):
     """Parse a testlist comp statement.
@@ -1176,6 +1256,7 @@ def _testlist_comp(tokens):
 
     # TODO comp_for
     
+    # TODO this is incorrect, needs to be rewritten with matcher
     while tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
         result.append((token.COMMA, ","))
         tokens.next()
@@ -1210,14 +1291,26 @@ def _trailer(tokens):
         result.append((token.LPAR, "("))
         tokens.next()
 
-        result = result + matcher(tokens, [[_arglist]], optional=True)
+        arglist = matcher(tokens, [_arglist], optional=True)
+        if arglist:
+            result.append(arglist)
 
         if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
             raise ParserError("Expecting `)'")
         result.append((token.RPAR, ")"))
         tokens.next()
-    else:
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
         raise NotImplementedError
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == ".":
+        result.append((token.DOT, "."))
+        tokens.next()
+        
+        if not (tokens.peek()[0] == token.NAME):
+            raise ParserError("Expecting name")
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+    else:
+        raise ParserError("Expecting '(', '[' or '.'")
     
     return result
 
@@ -1255,7 +1348,29 @@ def _exprlist(tokens):
 
         exprlist: expr (',' expr)* [',']
     """
-    raise NotImplementedError
+    result = [symbol.exprlist]
+    
+    result.append(_expr(tokens))
+
+    # ',' expr
+    def comma_expr(tokens):
+        result = []
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise ParserError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        result.append(_expr(tokens))
+        return result
+
+    more_expr = matcher(tokens, [comma_expr], optional=True, repeat=True)
+    if more_expr:
+        result = result + more_expr
+    
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+        result.append((token.COMMA, ","))
+        tokens.next()
+
+    return result
 
 def _testlist(tokens):
     """Parse a testlist.
@@ -1268,12 +1383,14 @@ def _testlist(tokens):
     
     result.append(_test(tokens))
     
+    # TODO this is incorrect, needs to be rewritten with matcher
     while tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
         result.append((token.COMMA, ","))
         tokens.next()
         result.append(_test(tokens))
 
     if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+        result.append((token.COMMA, ","))
         tokens.next()
 
     return result
@@ -1308,9 +1425,31 @@ def _arglist(tokens):
     """
     result = [symbol.arglist]
 
-    result.append(_argument(tokens))
+    # argument ','
+    def argument_comma(tokens):
+        result = []
+        result.append(_argument(tokens))
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise ParserError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        return result
+        
+    result = result + matcher(tokens, [argument_comma], repeat=True, optional=True)
+    
+    # argument [',']
+    def option1(tokens):
+        result = []
+        result.append(_argument(tokens))
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+            result.append((token.COMMA, ","))
+            tokens.next()
+        return result
 
-    # TODO
+    # TODO option2 '*' test (',' argument)* [',' '**' test]
+    # TODO option3 '**' test
+
+    result = result + matcher(tokens, [option1])
 
     return result
 
@@ -1321,12 +1460,31 @@ def _argument(tokens):
 
         argument: test [comp_for] | test '=' test
     """
+    # This grammar is *not* left-factored (see "theory") and has to be
+    # rewritten as follows (ε denotes the empty string):
+    #
+    #   argument: test option
+    #   option:   ε | comp_for | '=' test
+    #
+
     result = [symbol.argument]
-    
+
     result.append(_test(tokens))
+
+    # '=' test
+    def equals_test(tokens):
+        result = []
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "="):
+            raise ParserError
+        result.append((token.EQUAL, "="))
+        tokens.next()
+        result.append(_test(tokens))
+        return result
     
-    # TODO
-    
+    option = matcher(tokens, [_comp_for, equals_test], optional=True)
+    if option:
+        result = result + option
+
     return result
 
 def _list_iter(tokens):
@@ -1345,7 +1503,23 @@ def _list_for(tokens):
 
         list_for: 'for' exprlist 'in' testlist_safe [list_iter]
     """
-    raise NotImplementedError
+    result = [symbol.list_for]
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "for"):
+        raise ParserError
+        
+    result.append(_exprlist(tokens))
+
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
+        raise ParserError
+
+    result.append(_testlist_safe(tokens))
+    
+    list_iter = matcher(tokens, [_list_iter], optional=True)
+    if list_iter:
+        result.append(list_iter)
+
+    return result
 
 def _list_if(tokens):
     """Parse a list if.
@@ -1372,6 +1546,13 @@ def _comp_for(tokens):
 
         comp_for: 'for' exprlist 'in' or_test [comp_iter]
     """
+    result = [symbol.comp_for]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "for"):
+        raise ParserError
+    result.append((token.NAME, "for"))
+    tokens.next()
+
     raise NotImplementedError
 
 def _comp_if(tokens):
