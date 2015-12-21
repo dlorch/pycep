@@ -6,7 +6,7 @@ backtracking*.
 
 Some parts of the grammar are not suitable for parsing by recursive descent,
 because they are *not left-factored*. Consider the following example where both
-productions share the common prefix "test":
+productions share the common prefix ``test``:
     
 ::
     
@@ -14,7 +14,6 @@ productions share the common prefix "test":
     
 The issue with this production is that the recursive-descent parser could go
 down the first path, return with a success and never consider the second path.
-    
 We can left-factor the grammar by making a new nonterminal to represent the
 two alternatives for the symbols following the common prefix:
     
