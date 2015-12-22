@@ -11,6 +11,7 @@ def generate_tokens(readline):
     [(1, 'print', (1, 0), (1, 5), 'print "Hello, world!"'), (3, '"Hello, world!"', (1, 6), (1, 19), 'print "Hello, world!"'), (0, '', (2, 0), (2, 0), '')]
 
     See also:
+        * Python Language Reference: Lexical Analysis https://docs.python.org/2/reference/lexical_analysis.html
         * Python is not context free http://trevorjim.com/python-is-not-context-free/
     """
     
