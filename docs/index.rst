@@ -28,7 +28,7 @@ Try it out!
            margin-top: 5px;
            margin-bottom: 5px;
        }
-       #result {
+       #output {
            font: 12px/normal 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
            color: white;
            background-color: black;
