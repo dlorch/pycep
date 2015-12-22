@@ -15,9 +15,9 @@ def suite(source, totuple=False):
     returns a parse tree.
 
     >>> import pycep.parser
-    >>> st = pycep.parser.suite('print "Hello World"')
+    >>> st = pycep.parser.suite('print "Hello, world!"')
     >>> st.totuple()
-    (257, (267, (268, (269, (272, (1, 'print'), (304, (305, (306, (307, (308, (310, (311, (312, (313, (314, (315, (316, (317, (318, (3, '"Hello World"'))))))))))))))))), (4, ''))), (4, ''), (0, ''))
+    (257, (267, (268, (269, (272, (1, 'print'), (304, (305, (306, (307, (308, (310, (311, (312, (313, (314, (315, (316, (317, (318, (3, '"Hello, world!"'))))))))))))))))), (4, ''))), (4, ''), (0, ''))
 
     Args:
         source (string): Source code
@@ -59,7 +59,7 @@ def suite(source, totuple=False):
             term -> factor;
             factor -> power;
             power -> atom;
-            atom -> "STRING \\"Hello World\\""
+            atom -> "STRING \\"Hello, world!\\""
         }
 
 
@@ -1603,9 +1603,9 @@ def matcher(tokens, choices, repeat=False, optional=False):
 
     This would be written as:
     
-    >>> t1 = TokenIterator(generate_tokens(StringIO('print "Hello World"').readline))
+    >>> t1 = TokenIterator(generate_tokens(StringIO('print "Hello, world!"').readline))
     >>> matcher(t1, [_expr_stmt, _print_stmt, _del_stmt])
-    [272, (1, 'print'), [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (3, '"Hello World"')]]]]]]]]]]]]]]]
+    [272, (1, 'print'), [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (3, '"Hello, world!"')]]]]]]]]]]]]]]]
 
     Suppose the following example with an optional argument ``testlist``:
     
@@ -1700,18 +1700,18 @@ class TokenIterator(object):
     >>> from pycep.tokenizer import generate_tokens
     >>> from StringIO import StringIO
     >>> from pycep.parser import TokenIterator
-    >>> tokens = TokenIterator(generate_tokens(StringIO('print "Hello World"').readline))
+    >>> tokens = TokenIterator(generate_tokens(StringIO('print "Hello, world!"').readline))
     >>> tokens.peek()
-    (1, 'print', (1, 0), (1, 5), 'print "Hello World"')
+    (1, 'print', (1, 0), (1, 5), 'print "Hello, world!"')
     >>> tokens.next()
-    (1, 'print', (1, 0), (1, 5), 'print "Hello World"')
+    (1, 'print', (1, 0), (1, 5), 'print "Hello, world!"')
     >>> tokens.next()
-    (3, '"Hello World"', (1, 6), (1, 19), 'print "Hello World"')
+    (3, '"Hello, world!"', (1, 6), (1, 19), 'print "Hello, world!"')
     >>> tokens.next()
     (0, '', (2, 0), (2, 0), '')
     >>> tokens.seek(-1)
     >>> tokens.peek()
-    (1, 'print', (1, 0), (1, 5), 'print "Hello World"')
+    (1, 'print', (1, 0), (1, 5), 'print "Hello, world!"')
     """
 
     def __init__(self, generator):

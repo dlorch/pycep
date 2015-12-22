@@ -10,9 +10,9 @@ def parse(source):
 
     >>> import pycep.analyzer
     >>> import ast
-    >>> tree = pycep.analyzer.parse('print "Hello World"')
+    >>> tree = pycep.analyzer.parse('print "Hello, world!"')
     >>> ast.dump(tree)
-    "Module(body=[Print(dest=None, values=[Str(s='Hello World')], nl=True)])"
+    "Module(body=[Print(dest=None, values=[Str(s='Hello, world!')], nl=True)])"
 
     Args:
         source (string): Source code
@@ -35,7 +35,7 @@ def parse(source):
             Print -> None [label = "dest"];
             Print -> Str [label = "values"];
             Print -> True [label = "nl"];
-            Str -> "\\'Hello World\\'" [label = "s"];
+            Str -> "\\'Hello, world!\\'" [label = "s"];
         }
 
     See also:
