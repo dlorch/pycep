@@ -31,3 +31,8 @@ class TestParser(unittest.TestCase):
         source = open(path.join(SAMPLE_PROGRAMS, "helloworld.py")).read()
         self.assertEquals(parser.suite(source).totuple(),
             pycep.parser.suite(source, totuple=True))
+            
+    def test_parentsbabies(self):
+        source = open(path.join(SAMPLE_PROGRAMS, "parentsbabies.py")).read()
+        self.assertEquals(parser.suite(source).totuple(),
+            pycep.parser.suite(source, totuple=True))
