@@ -87,13 +87,13 @@ Try it out!
                        $("#parser_result").html('<img src="_static/parser_fail.svg" alt="parser fail" />');
                    }
 
-                   if(result.parser) {
+                   if(result.analyzer) {
                        $("#analyzer_result").html('<img src="_static/analyzer_pass.svg" alt="analyzer pass" />');
                    } else {
                        $("#analyzer_result").html('<img src="_static/analyzer_fail.svg" alt="analyzer fail" />');
                    }
 
-                   if(result.parser) {
+                   if(result.interpreter) {
                        $("#interpreter_result").html('<img src="_static/interpreter_pass.svg" alt="interpreter pass" />');
                    } else {
                        $("#interpreter_result").html('<img src="_static/interpreter_fail.svg" alt="interpreter fail" />');
