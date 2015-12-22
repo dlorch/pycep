@@ -145,7 +145,7 @@ Implementation Status
 +-------------+---------+-----------------------------------------------------+ 
 | Analyzer    | 5%      | Analyzing a handful of example programs.            | 
 +-------------+---------+-----------------------------------------------------+ 
-| Interpreter | 0%      | Forwarding calls to ``exec``                        | 
+| Interpreter | 1%      | Interpreting very few example programs.             | 
 +-------------+---------+-----------------------------------------------------+
 
 Design Goals
