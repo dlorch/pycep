@@ -76,27 +76,27 @@ Try it out!
                    $("#output").text(result.output);
 
                    if(result.tokenizer) {
-                       $("#tokenizer_result").html('<img src="_images/tokenizer_pass.svg" alt="tokenizer pass" />');
+                       $("#tokenizer_result").html('<img src="_static/tokenizer_pass.svg" alt="tokenizer pass" />');
                    } else {
-                       $("#tokenizer_result").html('<img src="_images/tokenizer_fail.svg" alt="tokenizer fail" />');
+                       $("#tokenizer_result").html('<img src="_static/tokenizer_fail.svg" alt="tokenizer fail" />');
                    }
 
                    if(result.parser) {
-                       $("#parser_result").html('<img src="_images/parser_pass.svg" alt="parser pass" />');
+                       $("#parser_result").html('<img src="_static/parser_pass.svg" alt="parser pass" />');
                    } else {
-                       $("#parser_result").html('<img src="_images/parser_fail.svg" alt="parser fail" />');
+                       $("#parser_result").html('<img src="_static/parser_fail.svg" alt="parser fail" />');
                    }
 
                    if(result.parser) {
-                       $("#analyzer_result").html('<img src="_images/analyzer_pass.svg" alt="analyzer pass" />');
+                       $("#analyzer_result").html('<img src="_static/analyzer_pass.svg" alt="analyzer pass" />');
                    } else {
-                       $("#analyzer_result").html('<img src="_images/analyzer_fail.svg" alt="analyzer fail" />');
+                       $("#analyzer_result").html('<img src="_static/analyzer_fail.svg" alt="analyzer fail" />');
                    }
 
                    if(result.parser) {
-                       $("#interpreter_result").html('<img src="_images/interpreter_pass.svg" alt="interpreter pass" />');
+                       $("#interpreter_result").html('<img src="_static/interpreter_pass.svg" alt="interpreter pass" />');
                    } else {
-                       $("#interpreter_result").html('<img src="_images/interpreter_fail.svg" alt="interpreter fail" />');
+                       $("#interpreter_result").html('<img src="_static/interpreter_fail.svg" alt="interpreter fail" />');
                    }
                }
            }).fail(function(jqXHR, textStatus) { /* Fatal service error */
