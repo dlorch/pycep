@@ -39,12 +39,18 @@ Try it out!
    <input type="submit" id="run" value="Run" />
    <div id="editor">def fib(n):
        a, b = 0, 1
-       while a < n:
+       while a &lt; n:
            print a
            a, b = b, a+b
    
    fib(1000)</div>
-   <pre id="result"></pre>
+   <div>
+       <span id="tokenizer_result"></span>
+       <span id="parser_result"></span>
+       <span id="analyzer_result"></span>
+       <span id="interpreter_result"></span>
+   </div>
+   <pre id="output"></pre>
    
    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.2/ace.js" type="text/javascript" charset="utf-8"></script>
    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.0.0-alpha1/jquery.min.js" type="text/javascript"></script>
@@ -64,14 +70,39 @@ Try it out!
            }).done(function(data) {
                $("#run").prop("disabled", false);
                result = JSON.parse(data);
-               if(result.errorMessage) {
-                   $("#result").text("Error: " + result.errorMessage);
+               if(result.errorMessage) { /* Lambda service exception (e.g. timeout) */
+                   $("#output").text("Error: " + result.errorMessage);
                } else {
-                   $("#result").text(result);
+                   $("#output").text(result.output);
+
+                   if(result.tokenizer) {
+                       $("#tokenizer_result").html('<img src="_images/tokenizer_pass.svg" alt="tokenizer pass" />');
+                   } else {
+                       $("#tokenizer_result").html('<img src="_images/tokenizer_fail.svg" alt="tokenizer fail" />');
+                   }
+
+                   if(result.parser) {
+                       $("#parser_result").html('<img src="_images/parser_pass.svg" alt="parser pass" />');
+                   } else {
+                       $("#parser_result").html('<img src="_images/parser_fail.svg" alt="parser fail" />');
+                   }
+
+                   if(result.parser) {
+                       $("#analyzer_result").html('<img src="_images/analyzer_pass.svg" alt="analyzer pass" />');
+                   } else {
+                       $("#analyzer_result").html('<img src="_images/analyzer_fail.svg" alt="analyzer fail" />');
+                   }
+
+                   if(result.parser) {
+                       $("#interpreter_result").html('<img src="_images/interpreter_pass.svg" alt="interpreter pass" />');
+                   } else {
+                       $("#interpreter_result").html('<img src="_images/interpreter_fail.svg" alt="interpreter fail" />');
+                   }
                }
-           }).fail(function(jqXHR, textStatus) {
+           }).fail(function(jqXHR, textStatus) { /* Fatal service error */
+               $("#output").text(textStatus);
+           }).always(function() {
                $("#run").prop("disabled", false);
-               $("#result").text(textStatus);
            });
        })
        
