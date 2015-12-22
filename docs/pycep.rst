@@ -8,5 +8,7 @@
 
 .. toctree::
 
+   pycep.tokenizer
    pycep.parser
    pycep.analyzer
+   pycep.interpreter

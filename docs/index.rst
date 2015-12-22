@@ -137,6 +137,7 @@ Contents
    :maxdepth: 2
 
    pycep.rst
+   parser.rst
    tools.rst
 
 Indices and tables
