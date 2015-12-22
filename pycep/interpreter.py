@@ -14,8 +14,7 @@ def execfile(filename):
     Hello, world!
 
     See also:
-        * Design of CPython’s Compiler https://docs.python.org/devguide/compiler.html
-        * Disassembler for Python Bytecode https://docs.python.org/2/library/dis.html
+        * Visitor Design Pattern https://sourcemaking.com/design_patterns/visitor
     """
     source = open(filename).read()
     tree = pycep.analyzer.parse(source)
