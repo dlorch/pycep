@@ -137,7 +137,6 @@ Contents
    :maxdepth: 2
 
    pycep.rst
-   references.rst
    tools.rst
 
 Indices and tables
