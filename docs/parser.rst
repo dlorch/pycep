@@ -1,5 +1,5 @@
 Parser
-------
+======
 
 The type of parser implemented is called a *recursive-descent parser with
 backtracking*.
