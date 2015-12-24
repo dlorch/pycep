@@ -37,25 +37,65 @@ class Interpreter():
         self.bind(node.name, node, scope)
 
     def visit_Assign(self, node, scope):
+        value = self.visit(node.value, scope)
+
         for target in node.targets:
-            value = self.visit(node.value, scope)
-            self.bind(target.id, value, scope)
+            if isinstance(target, ast.Tuple):
+                if len(target.elts) != len(value):
+                    raise ValueError("too many values to unpack")
+                for idx, elt in enumerate(target.elts):
+                    # TODO what if we have nested tuples?
+                    self.bind(elt.id, value[idx], scope)
+            else:
+                self.bind(target.id, value, scope)
 
     def visit_Print(self, node, scope):
         for value in node.values:
             # TODO dest, nl
             print self.visit(value, scope)
 
+    def visit_While(self, node, scope):
+        while self.visit(node.test, scope):
+            for stmt in node.body:
+                self.visit(stmt, scope)
+        # TODO node.orelse
+
     def visit_Expr(self, node, scope):
         self.visit(node.value, scope)
 
+    def visit_BinOp(self, node, scope):
+        left = self.visit(node.left, scope)
+        right = self.visit(node.right, scope)
+        
+        if isinstance(node.op, ast.Add):
+            return left + right
+        else:
+            raise NotImplementedError
+
+    def visit_Compare(self, node, scope):
+        left = self.visit(node.left, scope)
+        
+        if len(node.ops) > 1:
+            raise NotImplementedError
+        
+        comparator = self.visit(node.comparators[0], scope)
+
+        if isinstance(node.ops[0], ast.Lt):
+            return left < comparator
+        else:
+            raise NotImplementedError
+            
     def visit_Call(self, node, scope):
         # retrieve the function template
         func = self.visit(node.func, scope)
 
-        # TODO: augment scope by function call / defaults in function 
-        # Call(func=Name(id='my_function', ctx=Load()), args=[], keywords=[], starargs=None, kwargs=None)
-        # FunctionDef(name='my_function', args=arguments(args=[], vararg=None, kwarg=None, defaults=[]), ..)
+        # TODO:
+        # - check that required arguments to function are given
+        # - bind variables to function scope
+        for idx, call_arg in enumerate(node.args):
+            value = self.visit(call_arg, scope)
+            func_arg = func.args.args[idx]
+            self.bind(func_arg.id, value, func)
 
         for stmt in func.body:
             self.visit(stmt, func)
@@ -75,6 +115,12 @@ class Interpreter():
             raise NotImplementedError
         else:
             raise ValueError
+
+    def visit_Tuple(self, node, scope):
+        result = []
+        for expr in node.elts:
+            result.append(self.visit(expr, scope))
+        return tuple(result)
 
     def visit(self, node, scope=None):
         """Visit a node."""
