@@ -6,7 +6,8 @@
 Welcome to PyCep's documentation!
 =================================
 
-PyCep (Python Inception) is a Python 2.7 interpreter written in Python 2.7.
+PyCep (Python Inception) is a Python 2.7 interpreter written in Python 2.7, with
+the goal to be fully compatible with CPython 2.7.
 
 PyCep was created as study project to teach `myself <https://github.com/dlorch>`_
 about writing interpreters. PyCep's externally exported methods are modelled
