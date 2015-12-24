@@ -50,9 +50,12 @@ class Interpreter():
                 self.bind(target.id, value, scope)
 
     def visit_Print(self, node, scope):
-        for value in node.values:
-            # TODO dest, nl
-            print self.visit(value, scope)
+        for idx, value in enumerate(node.values):
+            # TODO dest
+            if idx < len(node.values) - 1:
+                print self.visit(value, scope),
+            else:
+                print self.visit(value, scope)
 
     def visit_While(self, node, scope):
         while self.visit(node.test, scope):

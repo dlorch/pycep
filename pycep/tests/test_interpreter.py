@@ -22,6 +22,11 @@ class TestInterpreter(unittest.TestCase):
         self.assertEquals(self._capture_output(execfile, filename),
             self._capture_output(pycep.interpreter.execfile, filename))
 
+    def test_functions(self):
+        filename = path.join(SAMPLE_PROGRAMS, "functions.py")
+        self.assertEquals(self._capture_output(execfile, filename),
+            self._capture_output(pycep.interpreter.execfile, filename))
+
     def test_helloworld(self):
         filename = path.join(SAMPLE_PROGRAMS, "helloworld.py")
         self.assertEquals(self._capture_output(execfile, filename),
