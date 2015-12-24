@@ -1,6 +1,6 @@
 # If a function only reads from a variable, it's assumed to be global. If the
 # function writes to it ever, it's assumed to be local. In the second function,
-# a is written to, so it's assumed to be local.
+# b is written to, so it's assumed to be local.
 #
 # Code in a nested function's body may access (but not rebind) local variables
 # of an outer function, also known as free variables of the nested function.
