@@ -5,7 +5,7 @@ def compile(source, filename, mode):
     to collect information about Python's compiler.
     
     See also:
-        * Design of CPython’s Compiler https://docs.python.org/devguide/compiler.html
+        * Design of CPython's Compiler https://docs.python.org/devguide/compiler.html
         * Disassembler for Python Bytecode https://docs.python.org/2/library/dis.html
     """
     raise NotImplementedError

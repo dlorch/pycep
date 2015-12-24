@@ -4,6 +4,7 @@ import parser
 import pycep.parser
 
 SAMPLE_PROGRAMS = path.abspath(path.join(path.dirname(__file__), "programs"))
+SNIPPETS = path.abspath(path.join(path.dirname(__file__), "snippets"))
 
 class TestParser(unittest.TestCase):
 
@@ -34,5 +35,10 @@ class TestParser(unittest.TestCase):
             
     def test_parentsbabies(self):
         source = open(path.join(SAMPLE_PROGRAMS, "parentsbabies.py")).read()
+        self.assertEquals(parser.suite(source).totuple(),
+            pycep.parser.suite(source, totuple=True))
+            
+    def test_variable_scope(self):
+        source = open(path.join(SNIPPETS, "pos", "variable_scope.py")).read()
         self.assertEquals(parser.suite(source).totuple(),
             pycep.parser.suite(source, totuple=True))

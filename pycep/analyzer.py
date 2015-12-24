@@ -95,47 +95,59 @@ def _parse(parse_tree, ctx=ast.Load()):
     elif key == symbol.parameters:
         """parameters: '(' [varargslist] ')'"""
         node = ast.arguments()
-        assert len(values) == 3
+        
         assert values[0][0] == token.LPAR
         assert values[0][1] == "("
-        assert values[1][0] == symbol.varargslist
-        
-        args = []
-        vararg = []
-        kwarg = []
-        defaults = []
-        
-        for value in values[1][1:]:
-            if value[0] == symbol.fpdef:
-                if value[1][0] == token.NAME:
-                    n = ast.Name()
-                    n.id = value[1][1]
-                    n.ctx = ast.Param()
-                    args.append(n)
+
+        if len(values) == 2:
+            node.args = []
+            node.vararg = None
+            node.kwarg = None
+            node.defaults = []
+            assert values[1][0] == token.RPAR
+            assert values[1][1] == ")"
+        elif len(values) == 3:
+            assert values[1][0] == symbol.varargslist
+            
+            args = []
+            vararg = []
+            kwarg = []
+            defaults = []
+            
+            for value in values[1][1:]:
+                if value[0] == symbol.fpdef:
+                    if value[1][0] == token.NAME:
+                        n = ast.Name()
+                        n.id = value[1][1]
+                        n.ctx = ast.Param()
+                        args.append(n)
+                    else:
+                        raise NotImplementedError
                 else:
                     raise NotImplementedError
+            
+            if len(args) > 0:
+                node.args = args
             else:
-                raise NotImplementedError
-        
-        if len(args) > 0:
-            node.args = args
-        else:
-            node.args = None
-
-        if len(vararg) > 0:
-            node.vararg = vararg
-        else:
-            node.vararg = None
+                node.args = None
+    
+            if len(vararg) > 0:
+                node.vararg = vararg
+            else:
+                node.vararg = None
+                
+            if len(kwarg) > 0:
+                node.kwarg = kwarg
+            else:
+                node.kwarg = None
+                
+            node.defaults = defaults
             
-        if len(kwarg) > 0:
-            node.kwarg = kwarg
+            assert values[2][0] == token.RPAR
+            assert values[2][1] == ")"
         else:
-            node.kwarg = None
-            
-        node.defaults = defaults
+            raise NotImplementedError
         
-        assert values[2][0] == token.RPAR
-        assert values[2][1] == ")"
         return node
     elif key == symbol.varargslist:
         """varargslist: ((fpdef ['=' test] ',')*
@@ -366,7 +378,7 @@ def _parse(parse_tree, ctx=ast.Load()):
         return _parse(values[0], ctx)
     elif key == symbol.comparison:
         """comparison: expr (comp_op expr)*"""
-        if len(values) == 3: # TODO only doing particular cases here
+        if len(values) > 1: # TODO only doing particular cases here
             node = ast.Compare()
             node.left = _parse(values[0], ctx)
             node.ops = _parse(values[1], ctx)
@@ -445,7 +457,22 @@ def _parse(parse_tree, ctx=ast.Load()):
         return _parse(values[0], ctx)
     elif key == symbol.power:
         """power: atom trailer* ['**' factor]"""
-        if len(values) > 1:
+        
+        atom, rest = values[0], values[1:]
+
+        node = _parse(atom, ctx)
+
+        for rest in values[1:]:
+            if rest[0] == symbol.trailer:
+                trailer = _parse(rest, ctx)
+                trailer.func = node
+                node = trailer
+            elif rest[0] == symbol.factor:
+                raise NotImplementedError
+        
+        return node
+    
+        if len(values) > 1 and len(values[1]) == 4:
             if values[0][0] == symbol.atom and values[1][0] == symbol.trailer \
                 and values[1][1][0] == token.LPAR \
                 and values[1][3][0] == token.RPAR:
@@ -460,6 +487,7 @@ def _parse(parse_tree, ctx=ast.Load()):
                 return node
             else:
                 raise NotImplementedError
+        
         # TODO
         return _parse(values[0], ctx)
     elif key == symbol.atom:
@@ -500,7 +528,23 @@ def _parse(parse_tree, ctx=ast.Load()):
         raise NotImplementedError("lambdef")
     elif key == symbol.trailer:
         """trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME"""
-        raise NotImplementedError("trailer")
+        
+        if values[0][0] == token.LPAR:
+            node = ast.Call()
+            
+            # TODO
+            if values[1][0] == symbol.arglist:
+                node.args = _parse(values[1])
+            else:
+                node.args = []
+        
+            node.keywords = [] # TODO
+            node.starargs = None # TODO
+            node.kwargs = None # TODO
+        else:
+            raise NotImplementedError
+        
+        return node
     elif key == symbol.subscriptlist:
         """subscriptlist: subscript (',' subscript)* [',']"""
         raise NotImplementedError("subscriptlist")

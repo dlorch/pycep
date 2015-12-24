@@ -164,9 +164,9 @@ def _funcdef(tokens):
         funcdef: 'def' NAME parameters ':' suite
     """
     result = [symbol.funcdef]
-    
+
     if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "def"):
-        raise ParserError("Expecting `def'")
+        raise ParserError("Expecting 'def'")
     result.append((tokens.peek()[0], tokens.peek()[1]))
     tokens.next()
         
@@ -176,9 +176,9 @@ def _funcdef(tokens):
     tokens.next()
 
     result.append(_parameters(tokens)) 
-
+    
     if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ':'):
-        raise ParserError("Expecting `:'")
+        raise ParserError("Expecting ':'")
     result.append((token.COLON, ':'))
     tokens.next()
     
@@ -196,17 +196,16 @@ def _parameters(tokens):
     result = [symbol.parameters]
 
     if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == '('):
-        raise ParserError("Expecting `('")
+        raise ParserError("Expecting '('")
     result.append((token.LPAR, '('))
     tokens.next()
 
-    try:
-        result.append(_varargslist(tokens))
-    except ParserError:
-        pass # varargslist is optional
-    
+    varargslist = matcher(tokens, [_varargslist], optional=True)
+    if varargslist:
+        result.append(varargslist)
+
     if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ')'):
-        raise ParserError("Expecting `)'")
+        raise ParserError("Expecting ')'")
     result.append((token.RPAR, ')'))
     tokens.next()
 
@@ -236,11 +235,19 @@ def _fpdef(tokens):
         fpdef: NAME | '(' fplist ')'
     """
     result = [symbol.fpdef]
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
-    # TODO
-    
+
+    if tokens.peek()[0] == token.NAME:
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
+        result.append((token.OP, "("))
+        tokens.next()
+        result.append(_fplist(tokens))
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
+            raise ParserError
+    else:
+        raise ParserError
+
     return result
 
 def _fplist(tokens):

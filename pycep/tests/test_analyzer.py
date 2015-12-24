@@ -5,6 +5,7 @@ import _ast
 import pycep.analyzer
 
 SAMPLE_PROGRAMS = path.abspath(path.join(path.dirname(__file__), "programs"))
+SNIPPETS = path.abspath(path.join(path.dirname(__file__), "snippets"))
 
 class TestAnalyzer(unittest.TestCase):
 
@@ -27,6 +28,10 @@ class TestAnalyzer(unittest.TestCase):
         source = open(path.join(SAMPLE_PROGRAMS, "helloworld.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
     
+    def test_variable_scope(self):
+        source = open(path.join(SNIPPETS, "pos", "variable_scope.py")).read()
+        self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
+
     def assertAstEqual(self, first, second, msg=None):
         def astShallowEqual(first, second):
             """ Only check shallow equality - don't recurse into sub-items """
