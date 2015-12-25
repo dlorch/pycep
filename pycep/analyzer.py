@@ -471,25 +471,6 @@ def _parse(parse_tree, ctx=ast.Load()):
                 raise NotImplementedError
         
         return node
-    
-        if len(values) > 1 and len(values[1]) == 4:
-            if values[0][0] == symbol.atom and values[1][0] == symbol.trailer \
-                and values[1][1][0] == token.LPAR \
-                and values[1][3][0] == token.RPAR:
-
-                node = ast.Call()
-                node.func = _parse(values[0], ctx)
-                node.args = _parse(values[1][2], ctx)
-                node.keywords = [] # TODO
-                node.starargs = None # TODO
-                node.kwargs = None # TODO
-
-                return node
-            else:
-                raise NotImplementedError
-        
-        # TODO
-        return _parse(values[0], ctx)
     elif key == symbol.atom:
         """atom: ('(' [yield_expr|testlist_comp] ')' |
                   '[' [listmaker] ']' |
