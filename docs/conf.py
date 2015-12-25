@@ -290,3 +290,43 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+# Disqus integration to ReadTheDocs:
+# https://github.com/whardier/bogomip/blob/master/conf.py#L269
+from docutils import nodes
+from sphinx.util.compat import Directive
+
+class Disqus(Directive):
+    required_arguments = 2
+    optional_arguments = 0
+    option_spec = {
+    }
+
+    final_argument_whitespace = False
+    has_content = False
+
+    def run(self):
+        disqus_shortname = self.arguments[0].strip()
+        disqus_id = self.arguments[1].strip()
+
+        embed_html_code = """
+        <div id="disqus_thread"></div>
+        <script type="text/javascript">
+            /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+            var disqus_shortname = '%s'; // required: replace example with your forum shortname
+            var disqus_identifier = '%s';
+            /* * * DON'T EDIT BELOW THIS LINE * * */
+            (function() {
+                var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+                dsq.src = 'http://' + disqus_shortname + '.disqus.com/embed.js';
+                (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+            })();
+        </script>
+        <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+        <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+        """ % (disqus_shortname, disqus_id)
+
+        return [ nodes.raw('', embed_html_code, format='html') ]
+
+def setup(app):
+    app.add_directive("disqus", Disqus)
