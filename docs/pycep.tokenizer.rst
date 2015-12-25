@@ -3,3 +3,5 @@
 
 .. automodule:: pycep.tokenizer
    :members:
+   
+.. disqus:: pycep pycep.tokenizer

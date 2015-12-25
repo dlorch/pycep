@@ -3,3 +3,5 @@
 
 .. automodule:: pycep.analyzer
    :members:
+   
+.. disqus:: pycep pycep.analyzer

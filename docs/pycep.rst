@@ -12,3 +12,5 @@
    pycep.parser
    pycep.analyzer
    pycep.interpreter
+   
+.. disqus:: pycep pycep

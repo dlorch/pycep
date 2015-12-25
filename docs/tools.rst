@@ -11,3 +11,5 @@ Thank you to the tool builders for these great tools:
 * Diagrams https://www.gliffy.com/
 * Interactive Demo is running as AWS Lambda Functions https://aws.amazon.com/de/lambda/
 * Editor for interactive demo is Ace https://ace.c9.io/
+
+.. disqus:: pycep tools

@@ -32,3 +32,5 @@ See also
 --------
 
 * Eliminating Ambiguities http://ycpcs.github.io/cs340-fall2015/lectures/lecture05.html
+
+.. disqus:: pycep parser
