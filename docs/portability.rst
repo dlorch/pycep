@@ -12,3 +12,5 @@ happens to be Python). These items are listed here:
 
 .. _String literal: https://docs.python.org/2/reference/lexical_analysis.html#string-literals
 .. _Built-ins: https://docs.python.org/2/library/functions.html
+
+.. disqus:: pycep portability
