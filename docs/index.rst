@@ -146,7 +146,7 @@ Implementation Status
 +-------------+---------+-----------------------------------------------------+ 
 | Analyzer    | 5%      | Analyzing a handful of example programs.            | 
 +-------------+---------+-----------------------------------------------------+ 
-| Interpreter | 1%      | Interpreting very few example programs.             | 
+| Interpreter | 3%      | Interpreting very few example programs.             | 
 +-------------+---------+-----------------------------------------------------+
 
 Design Goals
