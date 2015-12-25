@@ -170,6 +170,7 @@ Contents
 
    pycep.rst
    parser.rst
+   portability.rst
    tools.rst
 
 Indices and tables
