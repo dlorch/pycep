@@ -17,6 +17,11 @@ class TestInterpreter(unittest.TestCase):
         
         return captured_output.getvalue()
 
+    def test_beer(self):
+        filename = path.join(SAMPLE_PROGRAMS, "beer.py")
+        self.assertEquals(self._capture_output(execfile, filename),
+            self._capture_output(pycep.interpreter.execfile, filename))
+
     def test_fib(self):
         filename = path.join(SAMPLE_PROGRAMS, "fib.py")
         self.assertEquals(self._capture_output(execfile, filename),

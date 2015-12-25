@@ -36,6 +36,17 @@ class Interpreter():
         node.parent = scope
         self.bind(node.name, node, scope)
 
+    def visit_AugAssign(self, node, scope):
+        target = self.visit(node.target, scope)
+        left = self.resolve(target, scope)
+        value = self.visit(node.value, scope)
+
+        if isinstance(node.op, ast.Sub):
+            left -= value
+            self.bind(target, left, scope)
+        else:
+            raise NotImplementedError
+
     def visit_Assign(self, node, scope):
         value = self.visit(node.value, scope)
 
@@ -72,6 +83,10 @@ class Interpreter():
         
         if isinstance(node.op, ast.Add):
             return left + right
+        elif isinstance(node.op, ast.Sub):
+            return left - right
+        elif isinstance(node.op, ast.Mod):
+            return left % right
         else:
             raise NotImplementedError
 
@@ -85,6 +100,8 @@ class Interpreter():
 
         if isinstance(node.ops[0], ast.Lt):
             return left < comparator
+        elif isinstance(node.ops[0], ast.Gt):
+            return left > comparator
         else:
             raise NotImplementedError
             
@@ -110,12 +127,11 @@ class Interpreter():
         return node.s
 
     def visit_Name(self, node, scope):
-        """For a load request, return the value or raise a NameError if not found.
-        For a store request, return the matching scope"""
+        """Return the value or raise a NameError if not found."""
         if isinstance(node.ctx, ast.Load):
             return self.resolve(node.id, scope)
         elif isinstance(node.ctx, ast.Store):
-            raise NotImplementedError
+            return node.id
         else:
             raise ValueError
 
