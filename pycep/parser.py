@@ -169,14 +169,14 @@ def _funcdef(tokens):
         raise ParserError("Expecting 'def'")
     result.append((tokens.peek()[0], tokens.peek()[1]))
     tokens.next()
-        
+    
     if not (tokens.peek()[0] == token.NAME):
         raise ParserError("Expecting function name")
     result.append((tokens.peek()[0], tokens.peek()[1]))
     tokens.next()
 
     result.append(_parameters(tokens)) 
-    
+
     if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ':'):
         raise ParserError("Expecting ':'")
     result.append((token.COLON, ':'))
@@ -203,7 +203,7 @@ def _parameters(tokens):
     varargslist = matcher(tokens, [_varargslist], optional=True)
     if varargslist:
         result.append(varargslist)
-
+    
     if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ')'):
         raise ParserError("Expecting ')'")
     result.append((token.RPAR, ')'))
@@ -221,10 +221,46 @@ def _varargslist(tokens):
                       fpdef ['=' test] (',' fpdef ['=' test])* [','])
     """
     result = [symbol.varargslist]
-    result.append(_fpdef(tokens))
-
-    # TODO
     
+    # fpdef ['=' test]
+    def option2a(tokens):
+        result = []
+        result.append(_fpdef(tokens))
+
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == "=":
+            result.append((token.EQUAL, "="))
+            tokens.next()
+            result.append(_test(tokens))
+
+        return result
+
+    # ',' fpdef ['=' test]
+    def option2b(tokens):
+        result = []
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise ParserError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        
+        result = result + option2a(tokens)
+        
+        return result
+
+    # fpdef ['=' test] (',' fpdef ['=' test])* [',']
+    def option2(tokens):
+        result = []
+        result = result + option2a(tokens)
+        result = result + matcher(tokens, [option2b], repeat=True, optional=True)
+
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+            result.append((token.OP, ","))
+            tokens.next()
+
+        return result
+
+    # TODO option1
+    result = result + option2(tokens)
+
     return result
 
 def _fpdef(tokens):
@@ -316,7 +352,8 @@ def _small_stmt(tokens):
     result = [symbol.small_stmt]
 
     try:
-        result.append(matcher(tokens, [_expr_stmt, _print_stmt])) # TODO
+        result.append(matcher(tokens, [_expr_stmt, _print_stmt,
+            _flow_stmt])) # TODO
     except ParserError:
         raise ParserError("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
@@ -489,7 +526,15 @@ def _flow_stmt(tokens):
 
         flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt
     """
-    raise NotImplementedError
+    result = [symbol.flow_stmt]
+    
+    try:
+        result.append(matcher(tokens, [_return_stmt]))
+    except ParserError:
+        raise ParserError("Expecting: break_stmt | continue_stmt | return_stmt | " \
+            "raise_stmt | yield_stmt")
+
+    return result
 
 def _break_stmt(tokens):
     """Parse a break statement.
@@ -516,7 +561,18 @@ def _return_stmt(tokens):
 
         return_stmt: 'return' [testlist]
     """
-    raise NotImplementedError
+    result = [symbol.return_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "return"):
+        raise ParserError
+    result.append((token.NAME, "return"))
+    tokens.next()
+    
+    testlist = matcher(tokens, [_testlist], optional=True)
+    if testlist:
+        result.append(testlist)
+    
+    return result
 
 def _yield_stmt(tokens):
     """Parse a yield statement.
@@ -646,7 +702,8 @@ def _compound_stmt(tokens):
     result = [symbol.compound_stmt]
   
     try:
-        result.append(matcher(tokens, [_while_stmt, _funcdef, _for_stmt]))
+        result.append(matcher(tokens, [_while_stmt, _funcdef, _for_stmt,
+            _classdef]))
     except ParserError:
         raise ParserError("Expecting: if_stmt | while_stmt | for_stmt | "
             "try_stmt | with_stmt | funcdef | classdef | decorated")
@@ -672,14 +729,14 @@ def _while_stmt(tokens):
     result = [symbol.while_stmt]
     
     if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "while"):
-        raise ParserError("Expecting `while'")
+        raise ParserError("Expecting 'while'")
     result.append((tokens.peek()[0], tokens.peek()[1]))
     tokens.next()
 
     result.append(_test(tokens))
 
     if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise ParserError("Expecting `:'")
+        raise ParserError("Expecting ':'")
     result.append((token.COLON, ":"))
     tokens.next()
 
@@ -809,13 +866,13 @@ def _suite(tokens):
         try:
             while tokens.peek()[0] != token.DEDENT:
                 result.append(_stmt(tokens))
+
         except StopIteration:
             pass # raise "Expecting DEDENT" in next block
 
         if tokens.peek()[0] != token.DEDENT:
             raise ParserError("Expecting DEDENT")
         result.append((token.DEDENT, ''))
-
         tokens.next()
     else:
         raise NotImplementedError
@@ -1274,7 +1331,7 @@ def _trailer(tokens):
             result.append(arglist)
 
         if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
-            raise ParserError("Expecting `)'")
+            raise ParserError("Expecting ')'")
         result.append((token.RPAR, ")"))
         tokens.next()
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
@@ -1390,7 +1447,42 @@ def _classdef(tokens):
 
             classdef: 'class' NAME ['(' [testlist] ')'] ':' suite
     """
-    raise NotImplementedError
+    result = [symbol.classdef]
+
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "class"):
+        raise ParserError("Expecting 'class'")
+        
+    result.append((token.NAME, "class"))
+    tokens.next()
+    
+    if not (tokens.peek()[0] == token.NAME):
+        raise ParserError("Expecting class name")
+    
+    result.append((token.NAME, tokens.peek()[1]))
+    tokens.next()
+    
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
+        result.append((token.LPAR, "("))
+        tokens.next()
+        
+        testlist = matcher(tokens, [_testlist], optional=True)
+        if testlist:
+            result.append(testlist)
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
+            raise ParserError("Expecting ')'")
+        result.append((token.RPAR, ")"))
+        tokens.next()
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+        raise ParserError("Expecting ':'")
+
+    result.append((token.COLON, ":"))
+    tokens.next()
+
+    result.append(_suite(tokens))
+
+    return result
 
 def _arglist(tokens):
     """Parse an argument list.
@@ -1570,7 +1662,7 @@ def _yield_expr(tokens):
     result = [symbol.yield_expr]
     
     if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "yield"):
-        raise ParserError("Expecting `yield'")
+        raise ParserError("Expecting 'yield'")
     result.append((tokens.peek()[0], tokens.peek()[1]))
     tokens.next()
     
