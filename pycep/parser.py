@@ -222,6 +222,8 @@ def _varargslist(tokens):
     """
     result = [symbol.varargslist]
     
+    # TODO this grammar is not left-factored and needs to be rewritten
+    
     # fpdef ['=' test]
     def option2a(tokens):
         result = []
