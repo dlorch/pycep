@@ -104,6 +104,8 @@ def _file_input(tokens):
             if tokens.peek()[0] == token.NEWLINE:
                 result.append((tokens.peek()[0], ''))
                 tokens.next()
+            elif tokens.peek()[0] == token.N_TOKENS: # skip comments
+                tokens.next()
             else:
                 result.append(_stmt(tokens))
     except StopIteration:
@@ -355,7 +357,7 @@ def _small_stmt(tokens):
 
     try:
         result.append(matcher(tokens, [_expr_stmt, _print_stmt,
-            _flow_stmt])) # TODO
+            _flow_stmt, _import_stmt])) # TODO
     except ParserError:
         raise ParserError("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
@@ -601,7 +603,12 @@ def _import_stmt(tokens):
 
         import_stmt: import_name | import_from
     """
-    raise NotImplementedError
+    result = [symbol.import_stmt]
+    
+    #result.append(matcher(tokens, [_import_name, _import_from]))
+    result.append(_import_name(tokens))
+    
+    return result
 
 def _import_name(tokens):
     """Parse an import name.
@@ -610,7 +617,17 @@ def _import_name(tokens):
 
         import_name: 'import' dotted_as_names
     """
-    raise NotImplementedError
+    result = [symbol.import_name]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "import"):
+        raise ParserError
+        
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    result.append(_dotted_as_names(tokens))
+
+    return result
 
 def _import_from(tokens):
     """Parse an import from.
@@ -638,7 +655,14 @@ def _dotted_as_name(tokens):
 
         dotted_as_name: dotted_name ['as' NAME]
     """
-    raise NotImplementedError
+    result = [symbol.dotted_as_name]
+    
+    result.append(_dotted_name(tokens))
+    
+    if tokens.peek()[1] == "as":
+        raise NotImplementedError
+    
+    return result
 
 def _import_as_names(tokens):
     """Parse import as names.
@@ -656,7 +680,14 @@ def _dotted_as_names(tokens):
 
         dotted_as_names: dotted_as_name (',' dotted_as_name)*
     """
-    raise NotImplementedError
+    result = [symbol.dotted_as_names]
+    
+    result.append(_dotted_as_name(tokens))
+        
+    if tokens.peek()[1] == ",":
+        raise NotImplementedError
+
+    return result
 
 def _dotted_name(tokens):
     """Parse a dotted name.
@@ -665,7 +696,18 @@ def _dotted_name(tokens):
 
         dotted_name: NAME ('.' NAME)*
     """
-    raise NotImplementedError
+    result = [symbol.dotted_name]
+    
+    if not tokens.peek()[0] == token.NAME:
+        raise ParserError("Expecting: NAME")
+        
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    if tokens.peek()[1] == ".":
+        raise NotImplementedError
+    
+    return result
 
 def _global_stmt(tokens):
     """Parse a global statement.
@@ -704,8 +746,8 @@ def _compound_stmt(tokens):
     result = [symbol.compound_stmt]
   
     try:
-        result.append(matcher(tokens, [_while_stmt, _funcdef, _for_stmt,
-            _classdef]))
+        result.append(matcher(tokens, [_while_stmt, _try_stmt, _funcdef,
+            _for_stmt, _classdef]))
     except ParserError:
         raise ParserError("Expecting: if_stmt | while_stmt | for_stmt | "
             "try_stmt | with_stmt | funcdef | classdef | decorated")
@@ -818,7 +860,36 @@ def _try_stmt(tokens):
                     ['finally' ':' suite] |
                    'finally' ':' suite))
     """
-    raise NotImplementedError
+    result = [symbol.try_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "try"):
+        raise ParserError("Expecting: try")
+    
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+        raise ParserError("Expecting: ':'")
+
+    result.append((token.COLON, tokens.peek()[1]))
+    tokens.next()
+
+    result.append(_suite(tokens))
+    
+    # TODO repeat
+    result.append(_except_clause(tokens))
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+        raise ParserError("Expecting: ':'")
+
+    result.append((token.COLON, tokens.peek()[1]))
+    tokens.next()
+
+    result.append(_suite(tokens))
+
+    # TODO else/finally
+    
+    return result
 
 def _with_stmt(tokens):
     """Parse a with statement.
@@ -845,8 +916,18 @@ def _except_clause(tokens):
 
         except_clause: 'except' [test [('as' | ',') test]]
     """
-    raise NotImplementedError
+    result = [symbol.except_clause]
 
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "except"):
+        raise ParserError("Expecting 'except'")
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    # TODO
+    result.append(_test(tokens))
+
+    return result
+    
 def _suite(tokens):
     """Parse a suite.
 
@@ -1337,7 +1418,15 @@ def _trailer(tokens):
         result.append((token.RPAR, ")"))
         tokens.next()
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
-        raise NotImplementedError
+        result.append((token.LSQB, "["))
+        tokens.next()
+        
+        result.append(_subscriptlist(tokens))
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "]"):
+            raise ParserError("Expecting ')'")
+        result.append((token.RSQB, "]"))
+        tokens.next()
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == ".":
         result.append((token.DOT, "."))
         tokens.next()
@@ -1358,7 +1447,14 @@ def _subscriptlist(tokens):
 
         subscriptlist: subscript (',' subscript)* [',']
     """
-    raise NotImplementedError
+    result = [symbol.subscriptlist]
+    
+    result.append(_subscript(tokens))
+    
+    if tokens.peek()[1] == ",":
+        raise NotImplementedError
+    
+    return result
 
 def _subscript(tokens):
     """Parse a subscript.
@@ -1367,7 +1463,30 @@ def _subscript(tokens):
 
         subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
     """
-    raise NotImplementedError
+    # This grammar is *not* left-factored and has to be rewritten as follows
+    # (<=> denotes "if and only if"). Derivation:
+    #
+    #   subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
+    #   <=>
+    #   subscript: '.' '.' '.' | test | test ':' [test] [slicep] | ':' [test] [sliceop]
+    #   <=>
+    #   subscript: '.' '.' '.' | test [':' [test] [slicep]] | ':' [test] [slicep]
+    #   <=>
+    #   subscript: '.' '.' '.' | test [rest] | rest
+    #   rest:      ':' [test] [slicep]
+    #
+
+    result = [symbol.subscript]
+    
+    # TODO
+    result.append(_test(tokens))
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+        raise ParserError
+    result.append((token.COLON, tokens.peek()[1]))
+    tokens.next()
+
+    return result
 
 def _sliceop(tokens):
     """Parse a slice operation.
@@ -1553,7 +1672,7 @@ def _argument(tokens):
         result.append(_test(tokens))
         return result
     
-    option = matcher(tokens, [_comp_for, equals_test], optional=True)
+    option = matcher(tokens, [[_comp_for], equals_test], optional=True)
     if option:
         result = result + option
 
@@ -1625,7 +1744,16 @@ def _comp_for(tokens):
     result.append((token.NAME, "for"))
     tokens.next()
 
-    raise NotImplementedError
+    result.append(_exprlist(tokens))
+
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
+        raise ParserError
+    result.append((token.NAME, "in"))
+    tokens.next()
+
+    result.append(_or_test(tokens))
+
+    return result
 
 def _comp_if(tokens):
     """Parse a comp if.
