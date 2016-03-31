@@ -20,6 +20,10 @@ class TestAnalyzer(unittest.TestCase):
         source = open(path.join(SAMPLE_PROGRAMS, "classes.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
 
+    def test_cliexception(self):
+        source = open(path.join(SAMPLE_PROGRAMS, "cliexception.py")).read()
+        self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
+
     def test_fib(self):
         source = open(path.join(SAMPLE_PROGRAMS, "fib.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))

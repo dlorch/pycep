@@ -325,10 +325,13 @@ def _parse(parse_tree, ctx=ast.Load()):
         raise NotImplementedError("raise_stmt")
     elif key == symbol.import_stmt:
         """import_stmt: import_name | import_from"""
-        raise NotImplementedError("import_stmt")
+        return _parse(values[0])
     elif key == symbol.import_name:
         """import_name: 'import' dotted_as_names"""
-        raise NotImplementedError("import_name")
+        node = ast.Import()
+        node.names = _parse(values[1])
+
+        return node
     elif key == symbol.import_from:
         """import_from: ('from' ('.'* dotted_name | '.'+)
                          'import' ('*' | '(' import_as_names ')' | import_as_names))"""
@@ -338,10 +341,27 @@ def _parse(parse_tree, ctx=ast.Load()):
         raise NotImplementedError("import_as_name")
     elif key == symbol.dotted_as_name:
         """dotted_as_name: dotted_name ['as' NAME]"""
-        raise NotImplementedError("dotted_as_name")
+        if len(values) > 1:
+            raise NotImplementedError("dotted_as_name with multiple arguments not supported")
+        
+        node = ast.alias()
+        node.name = _parse(values[0])
+        node.asname = None
+        
+        return node
+    elif key == symbol.import_as_names:
+        """import_as_names: import_as_name (',' import_as_name)* [',']"""
+        raise NotImplementedError("import_as_names")
+    elif key == symbol.dotted_as_names:
+        """dotted_as_names: dotted_as_name (',' dotted_as_name)*"""
+        if len(values) > 1:
+            raise NotImplementedError("dotted_as_names with multiple arguments not supported")
+        return [_parse(values[0])]
     elif key == symbol.dotted_name:
         """dotted_name: NAME ('.' NAME)*"""
-        raise NotImplementedError("dotted_name")
+        if len(values) > 1:
+            raise NotImplementedError("dotted_name with multiple arguments not supported")
+        return values[0][1]
     elif key == symbol.global_stmt:
         """global_stmt: 'global' NAME (',' NAME)*"""
         raise NotImplementedError("global_stmt")
@@ -384,7 +404,17 @@ def _parse(parse_tree, ctx=ast.Load()):
                        ['else' ':' suite]
                        ['finally' ':' suite] |
                       'finally' ':' suite))"""
-        raise NotImplementedError("try_stmt")
+        # TODO
+        node = ast.TryExcept()
+        node.body = _parse(values[2])
+        
+        handler = _parse(values[3])
+        handler.body = _parse(values[5])
+        
+        node.handlers = [handler]
+        node.orelse = []
+        
+        return node
     elif key == symbol.with_stmt:
         """with_stmt: 'with' with_item (',' with_item)*  ':' suite"""
         raise NotImplementedError("with_stmt")
@@ -393,7 +423,14 @@ def _parse(parse_tree, ctx=ast.Load()):
         raise NotImplementedError("with_item")
     elif key == symbol.except_clause:
         """except_clause: 'except' [test [('as' | ',') test]]"""
-        raise NotImplementedError("except_clause")
+        if len(values) != 2:
+            raise NotImplementedError("except_clause supported only with 2 arguments")
+        
+        node = ast.ExceptHandler()
+        node.type = _parse(values[1])
+        node.name = None
+
+        return node
     elif key == symbol.suite:
         """suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT"""
         if values[0][0] == token.NEWLINE:
@@ -518,7 +555,7 @@ def _parse(parse_tree, ctx=ast.Load()):
         """power: atom trailer* ['**' factor]"""
         
         node = _parse(values[0], ctx)
-
+        
         for rest in values[1:]:
             if rest[0] == symbol.trailer:
                 trailer = _parse(rest, ctx)
@@ -528,6 +565,8 @@ def _parse(parse_tree, ctx=ast.Load()):
                     trailer.value = node
                 elif isinstance(trailer, ast.Call):
                     trailer.func = node
+                elif isinstance(trailer, ast.Subscript):
+                    trailer.value = node
                 else:
                     raise NotImplementedError
     
@@ -587,26 +626,49 @@ def _parse(parse_tree, ctx=ast.Load()):
             node.keywords = [] # TODO
             node.starargs = None # TODO
             node.kwargs = None # TODO
+        elif values[0][0] == token.LSQB:
+            node = ast.Subscript()
+            node.slice = _parse(values[1], ctx)
+            node.ctx = ctx
         elif values[0][0] == token.DOT:
             node = ast.Attribute()
             node.attr = values[1][1]
             node.ctx = ctx
         else:
-            raise NotImplementedError
+            raise ValueError
         
         return node
     elif key == symbol.subscriptlist:
         """subscriptlist: subscript (',' subscript)* [',']"""
-        raise NotImplementedError("subscriptlist")
+        if len(values) == 1:
+            return _parse(values[0], ctx)
+        else:
+            raise NotImplementedError("subscriptlist with len(values) > 1 not supported")
     elif key == symbol.subscript:
         """subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]"""
-        raise NotImplementedError("subscript")
+        if len(values) > 1:
+            if values[0][0] == symbol.test:
+                test = _parse(values[0])
+                # TODO
+                
+                node = ast.Slice()
+                node.lower = test
+                node.upper = None
+                node.step = None
+
+                return node
+            else:
+                raise NotImplementedError("Not implemented: ", values[0][0])
+        else:
+            raise NotImplementedError("subscript with len(values) <= 1 not supported")
     elif key == symbol.sliceop:
         """sliceop: ':' [test]"""
         raise NotImplementedError("sliceop")
     elif key == symbol.exprlist:
         """exprlist: expr (',' expr)* [',']"""
-        raise NotImplementedError("exprlist")
+        if len(values) > 1:
+            raise NotImplementedError("exprlist with multiple arguments not supported")
+        return [_parse(values[0], ctx)]
     elif key == symbol.testlist:
         """testlist: test (',' test)* [',']"""
         if len(values) > 1:
@@ -656,8 +718,20 @@ def _parse(parse_tree, ctx=ast.Load()):
         return result
     elif key == symbol.argument:
         """argument: test [comp_for] | test '=' test"""
-        # TODO
-        return _parse(values[0], ctx)
+        if len(values) == 2:
+            test = _parse(values[0], ctx)
+            comp_for = _parse(values[1], ctx)
+
+            # TODO
+            node = ast.GeneratorExp()
+            node.elt = test
+            node.generators = [comp_for]
+
+            return node
+        elif len(values) == 1:
+            return _parse(values[0], ctx)
+        else:
+            raise NotImplementedError("symbol.argument with len(values) > 2 not supported")
     elif key == symbol.list_iter:
         """list_iter: list_for | list_if"""
         raise NotImplementedError("list_iter")
@@ -672,7 +746,15 @@ def _parse(parse_tree, ctx=ast.Load()):
         raise NotImplementedError("comp_iter")
     elif key == symbol.comp_for:
         """comp_for: 'for' exprlist 'in' or_test [comp_iter]"""
-        raise NotImplementedError("comp_for")
+        if len(values) > 4:
+            raise NotImplementedError("comp_for with more than 4 arguments not supported")
+
+        node = ast.comprehension()
+        node.target = _parse(values[1], ast.Store())[0] # TODO
+        node.iter = _parse(values[3], ctx)
+        node.ifs = []
+        
+        return node
     elif key == symbol.testlist1:
         """testlist1: test (',' test)*"""
         raise NotImplementedError("testlist1")
