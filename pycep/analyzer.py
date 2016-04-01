@@ -48,7 +48,7 @@ def parse(source):
 
     return tree
 
-class Analyzer():
+class Analyzer:
     """Convert a parse tree into an abstract syntax tree.
     
     See also:

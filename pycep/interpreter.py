@@ -15,7 +15,7 @@ def execfile(filename):
     tree = pycep.analyzer.parse(source)
     Interpreter().visit(tree)
     
-class Interpreter():
+class Interpreter:
     """An AST-based interpreter
     
     See also:
