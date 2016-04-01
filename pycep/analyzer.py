@@ -43,42 +43,66 @@ def parse(source):
         * Green Tree Snakes - the missing Python AST docs: https://greentreesnakes.readthedocs.org/
     """
     parse_tree = pycep.parser.suite(source)
-    tree = _parse(parse_tree.totuple())
+    tree = Analyzer().visit(parse_tree.totuple())
     ast.fix_missing_locations(tree) # TODO
 
     return tree
 
-def _parse(parse_tree, ctx=ast.Load()):
-    key, values = parse_tree[0], parse_tree[1:]
+class Analyzer():
+    """Convert a parse tree into an abstract syntax tree.
+    
+    See also:
+        * Visitor Design Pattern https://sourcemaking.com/design_patterns/visitor
+    """
+    
+    def visit(self, tree, ctx=ast.Load()):
+        key, values = tree[0], tree[1:]
 
-    if key == symbol.single_input:
+        if key in symbol.sym_name:
+            method = "visit_" + symbol.sym_name[key]
+        elif key in token.tok_name:
+            method = "visit_" + token.tok_name[key]
+        else:
+            raise ValueError("Unexpected symbol/token `%d'" % key)
+
+        visitor = getattr(self, method)
+            
+        return visitor(values, ctx)
+
+    def visit_single_input(self, values, ctx):
         """single_input: NEWLINE | simple_stmt | compound_stmt NEWLINE"""
         raise NotImplementedError("single_input")
-    elif key == symbol.file_input:
+        
+    def visit_file_input(self, values, ctx):
         """file_input: (NEWLINE | stmt)* ENDMARKER"""
         node = ast.Module()
         node.body = []
         
         for value in values[:-2]:
-            node.body.append(_parse(value, ctx))
+            node.body.append(self.visit(value, ctx))
 
         assert values[-2][0] == token.NEWLINE
         assert values[-1][0] == token.ENDMARKER
         
         return node
-    elif key == symbol.eval_input:
+        
+    def visit_eval_input(self, values, ctx):
         """eval_input: testlist NEWLINE* ENDMARKER"""
         raise NotImplementedError("eval_input")
-    elif key == symbol.decorator:
+        
+    def visit_decorator(self, values, ctx):
         """decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE"""
         raise NotImplementedError("decorator")
-    elif key == symbol.decorators:
+
+    def visit_decorators(self, values, ctx):
         """decorators: decorator+"""
         raise NotImplementedError("decorators")
-    elif key == symbol.decorated:
+
+    def visit_decorated(self, values, ctx):
         """decorated: decorators (classdef | funcdef)"""
         raise NotImplementedError("decorated")
-    elif key == symbol.funcdef:
+    
+    def visit_funcdef(self, values, ctx):
         """funcdef: 'def' NAME parameters ':' suite"""
         node = ast.FunctionDef()
         assert len(values) == 5
@@ -86,13 +110,14 @@ def _parse(parse_tree, ctx=ast.Load()):
         assert values[0][1] == "def"
         assert values[1][0] == token.NAME
         node.name = values[1][1]
-        node.args = _parse(values[2], ast.Param())
+        node.args = self.visit(values[2], ast.Param())
         assert values[3][0] == token.COLON
         assert values[3][1] == ":"
-        node.body = _parse(values[4], ctx)
+        node.body = self.visit(values[4], ctx)
         node.decorator_list = [] # TODO
         return node
-    elif key == symbol.parameters:
+    
+    def visit_parameters(self, values, ctx):
         """parameters: '(' [varargslist] ')'"""
         
         if len(values) == 2:
@@ -103,7 +128,7 @@ def _parse(parse_tree, ctx=ast.Load()):
             node.defaults = []
         else:
             varargslist = values[1]
-            node = _parse(varargslist, ctx)
+            node = self.visit(varargslist, ctx)
             
         return node
         
@@ -170,7 +195,8 @@ def _parse(parse_tree, ctx=ast.Load()):
             raise NotImplementedError
         
         return node
-    elif key == symbol.varargslist:
+    
+    def visit_varargslist(self, values, ctx):
         """varargslist: ((fpdef ['=' test] ',')*
                          ('*' NAME [',' '**' NAME] | '**' NAME) |
                          fpdef ['=' test] (',' fpdef ['=' test])* [','])"""
@@ -187,7 +213,7 @@ def _parse(parse_tree, ctx=ast.Load()):
             if values[idx][0] == token.COMMA:
                 idx += 1
             elif values[idx][0] == token.EQUAL:
-                test = _parse(values[idx+1], ctx)
+                test = self.visit(values[idx+1], ctx)
                 node.defaults.append(test)
                 idx += 2
             elif values[idx][0] == token.STAR:
@@ -195,12 +221,13 @@ def _parse(parse_tree, ctx=ast.Load()):
             elif values[idx][0] == token.DOUBLESTAR:
                 raise NotImplementedError
             else:
-                fpdef = _parse(values[idx], ctx)
+                fpdef = self.visit(values[idx], ctx)
                 node.args.append(fpdef)
                 idx += 1
 
         return node
-    elif key == symbol.fpdef:
+    
+    def visit_fpdef(self, values, ctx):
         """fpdef: NAME | '(' fplist ')'"""
         if values[0][0] == token.NAME:
             node = ast.Name()
@@ -209,23 +236,28 @@ def _parse(parse_tree, ctx=ast.Load()):
             return node
         else:
             raise NotImplementedError
-    elif key == symbol.fplist:
+    
+    def visit_fplist(self, values, ctx):
         """fplist: fpdef (',' fpdef)* [',']"""
         raise NotImplementedError("fplist")
-    elif key == symbol.stmt:
+    
+    def visit_stmt(self, values, ctx):
         """stmt: simple_stmt | compound_stmt"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.simple_stmt:
+        return self.visit(values[0], ctx)
+
+    def visit_simple_stmt(self, values, ctx):
         """simple_stmt: small_stmt (';' small_stmt)* [';'] NEWLINE"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.small_stmt:
+        return self.visit(values[0], ctx)
+
+    def visit_small_stmt(self, values, ctx):
         """small_stmt: (expr_stmt | print_stmt  | del_stmt | pass_stmt | flow_stmt |
                         import_stmt | global_stmt | exec_stmt | assert_stmt)"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.expr_stmt:
+        return self.visit(values[0], ctx)
+        
+    def visit_expr_stmt(self, values, ctx):
         """expr_stmt: testlist (augassign (yield_expr|testlist) |
                                 ('=' (yield_expr|testlist))*)"""
         if len(values) > 1:
@@ -235,30 +267,30 @@ def _parse(parse_tree, ctx=ast.Load()):
                 if len(values[0]) > 2: # TODO
                     targets = ast.Tuple()
                     targets.ctx = ast.Store()
-                    targets.elts = _parse(values[0], ctx=targets.ctx)
+                    targets.elts = self.visit(values[0], ctx=targets.ctx)
                 else:
-                    targets = _parse(values[0], ctx=ast.Store())
+                    targets = self.visit(values[0], ctx=ast.Store())
                     
                 node.targets = [targets] # TODO why is this an array but value is not?
                 
                 if len(values[2]) > 2:
                     value = ast.Tuple()
                     value.ctx = ast.Load()
-                    value.elts = _parse(values[2], ctx=value.ctx)
+                    value.elts = self.visit(values[2], ctx=value.ctx)
                 else:
-                    value = _parse(values[2], ctx=ast.Load())
+                    value = self.visit(values[2], ctx=ast.Load())
                 
                 node.value = value
                 
                 return node
             else:
                 node = ast.AugAssign()
-                node.target = _parse(values[0], ast.Store())
-                node.op = _parse(values[1], ast.Store())
-                node.value = _parse(values[2], ast.Load())
+                node.target = self.visit(values[0], ast.Store())
+                node.op = self.visit(values[1], ast.Store())
+                node.value = self.visit(values[2], ast.Load())
                 return node
         elif len(values) == 1:
-            result = _parse(values[0], ctx)
+            result = self.visit(values[0], ctx)
             
             # if the return value of an expression isn't used or stored, it is
             # wrapped into an Expr() node
@@ -271,7 +303,8 @@ def _parse(parse_tree, ctx=ast.Load()):
             return node
         else:
             raise NotImplementedError("expr_stmt")
-    elif key == symbol.augassign:
+    
+    def visit_augassign(self, values, ctx):
         """augassign: ('+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' |
            '<<=' | '>>=' | '**=' | '//=')"""
         if values[0][0] == token.PLUSEQUAL:
@@ -280,7 +313,8 @@ def _parse(parse_tree, ctx=ast.Load()):
             return ast.Sub()
         else:
             raise NotImplementedError("augassign: " + token.tok_name[values[0][0]])
-    elif key == symbol.print_stmt:
+
+    def visit_print_stmt(self, values, ctx):
         """print_stmt: 'print' ( [ test (',' test)* [','] ] |
                                  '>>' test [ (',' test)+ [','] ] )"""
         node = ast.Print()
@@ -290,95 +324,117 @@ def _parse(parse_tree, ctx=ast.Load()):
         # TODO ">>"
         for value in values[1:]:
             if value[0] != token.COMMA:
-                node.values.append(_parse(value, ctx))
+                node.values.append(self.visit(value, ctx))
 
         node.nl = True # TODO
         return node
-    elif key == symbol.del_stmt:
+    
+    def visit_del_stmt(self, values, ctx):
         """del_stmt: 'del' exprlist"""
         raise NotImplementedError("del_stmt")
-    elif key == symbol.pass_stmt:
+        
+    def visit_pass_stmt(self, values, ctx):
         """pass_stmt: 'pass'"""
         raise NotImplementedError("pass_stmt")
-    elif key == symbol.flow_stmt:
+
+    def visit_flow_stmt(self, values, ctx):
         """flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt"""
-        return _parse(values[0], ctx)
-    elif key == symbol.break_stmt:
+        return self.visit(values[0], ctx)
+
+    def visit_break_stmt(self, values, ctx):
         """break_stmt: 'break'"""
         raise NotImplementedError("break_stmt")
-    elif key == symbol.continue_stmt:
+
+    def visit_continue_stmt(self, values, ctx):
         """continue_stmt: 'continue'"""
         raise NotImplementedError("continue_stmt")
-    elif key == symbol.return_stmt:
+
+    def visit_return_stmt(self, values, ctx):
         """return_stmt: 'return' [testlist]"""
         node = ast.Return()
         
         if len(values) == 2:
-            node.value = _parse(values[1], ctx)
+            node.value = self.visit(values[1], ctx)
         
         return node
-    elif key == symbol.yield_stmt:
+
+    def visit_yield_stmt(self, values, ctx):
         """yield_stmt: yield_expr"""
         raise NotImplementedError("yield_stmt")
-    elif key == symbol.raise_stmt:
+
+    def visit_raise_stmt(self, values, ctx):
         """raise_stmt: 'raise' [test [',' test [',' test]]]"""
         raise NotImplementedError("raise_stmt")
-    elif key == symbol.import_stmt:
+
+    def visit_import_stmt(self, values, ctx):
         """import_stmt: import_name | import_from"""
-        return _parse(values[0])
-    elif key == symbol.import_name:
+        return self.visit(values[0])
+
+    def visit_import_name(self, values, ctx):
         """import_name: 'import' dotted_as_names"""
         node = ast.Import()
-        node.names = _parse(values[1])
+        node.names = self.visit(values[1])
 
         return node
-    elif key == symbol.import_from:
+
+    def visit_import_from(self, values, ctx):
         """import_from: ('from' ('.'* dotted_name | '.'+)
                          'import' ('*' | '(' import_as_names ')' | import_as_names))"""
         raise NotImplementedError("import_from")
-    elif key == symbol.import_as_name:
+
+    def visit_import_as_name(self, values, ctx):
         """import_as_name: NAME ['as' NAME]"""
         raise NotImplementedError("import_as_name")
-    elif key == symbol.dotted_as_name:
+
+    def visit_dotted_as_name(self, values, ctx):
         """dotted_as_name: dotted_name ['as' NAME]"""
         if len(values) > 1:
             raise NotImplementedError("dotted_as_name with multiple arguments not supported")
         
         node = ast.alias()
-        node.name = _parse(values[0])
+        node.name = self.visit(values[0])
         node.asname = None
         
         return node
-    elif key == symbol.import_as_names:
+
+    def visit_import_as_names(self, values, ctx):
         """import_as_names: import_as_name (',' import_as_name)* [',']"""
         raise NotImplementedError("import_as_names")
-    elif key == symbol.dotted_as_names:
+    
+    def visit_dotted_as_names(self, values, ctx):
         """dotted_as_names: dotted_as_name (',' dotted_as_name)*"""
         if len(values) > 1:
             raise NotImplementedError("dotted_as_names with multiple arguments not supported")
-        return [_parse(values[0])]
-    elif key == symbol.dotted_name:
+        return [self.visit(values[0])]
+
+    def visit_dotted_name(self, values, ctx):
         """dotted_name: NAME ('.' NAME)*"""
         if len(values) > 1:
             raise NotImplementedError("dotted_name with multiple arguments not supported")
         return values[0][1]
-    elif key == symbol.global_stmt:
+
+    def visit_global_stmt(self, values, ctx):
         """global_stmt: 'global' NAME (',' NAME)*"""
         raise NotImplementedError("global_stmt")
-    elif key == symbol.exec_stmt:
+
+    def visit_exec_stmt(self, values, ctx):
         """exec_stmt: 'exec' expr ['in' test [',' test]]"""
         raise NotImplementedError("exec_stmt")
-    elif key == symbol.assert_stmt:
+
+    def visit_assert_stmt(self, values, ctx):
         """assert_stmt: 'assert' test [',' test]"""
         raise NotImplementedError("assert_stmt")
-    elif key == symbol.compound_stmt:
+
+    def visit_compound_stmt(self, values, ctx):
         """compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.if_stmt:
+        return self.visit(values[0], ctx)
+    
+    def visit_if_stmt(self, values, ctx):
         """if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]"""
         raise NotImplementedError("if_stmt")
-    elif key == symbol.while_stmt:
+
+    def visit_while_stmt(self, values, ctx):
         """while_stmt: 'while' test ':' suite ['else' ':' suite]"""
         node = ast.While()
 
@@ -386,19 +442,21 @@ def _parse(parse_tree, ctx=ast.Load()):
         assert values[0][0] == token.NAME
         assert values[0][1] == "while"
         
-        node.test = _parse(values[1], ctx)
+        node.test = self.visit(values[1], ctx)
         
         assert values[2][0] == token.COLON
         assert values[2][1] == ":"
         
-        node.body = _parse(values[3], ctx)
+        node.body = self.visit(values[3], ctx)
         node.orelse = [] # TODO
 
         return node
-    elif key == symbol.for_stmt:
+
+    def visit_for_stmt(self, values, ctx):
         """for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]"""
         raise NotImplementedError("for_stmt")
-    elif key == symbol.try_stmt:
+
+    def visit_try_stmt(self, values, ctx):
         """try_stmt: ('try' ':' suite
                       ((except_clause ':' suite)+
                        ['else' ':' suite]
@@ -406,32 +464,36 @@ def _parse(parse_tree, ctx=ast.Load()):
                       'finally' ':' suite))"""
         # TODO
         node = ast.TryExcept()
-        node.body = _parse(values[2])
+        node.body = self.visit(values[2])
         
-        handler = _parse(values[3])
-        handler.body = _parse(values[5])
+        handler = self.visit(values[3])
+        handler.body = self.visit(values[5])
         
         node.handlers = [handler]
         node.orelse = []
         
         return node
-    elif key == symbol.with_stmt:
+
+    def visit_with_stmt(self, values, ctx):
         """with_stmt: 'with' with_item (',' with_item)*  ':' suite"""
         raise NotImplementedError("with_stmt")
-    elif key == symbol.with_item:
+
+    def visit_with_item(self, values, ctx):
         """with_item: test ['as' expr]"""
         raise NotImplementedError("with_item")
-    elif key == symbol.except_clause:
+
+    def visit_except_clause(self, values, ctx):
         """except_clause: 'except' [test [('as' | ',') test]]"""
         if len(values) != 2:
             raise NotImplementedError("except_clause supported only with 2 arguments")
         
         node = ast.ExceptHandler()
-        node.type = _parse(values[1])
+        node.type = self.visit(values[1])
         node.name = None
 
         return node
-    elif key == symbol.suite:
+    
+    def visit_suite(self, values, ctx):
         """suite: simple_stmt | NEWLINE INDENT stmt+ DEDENT"""
         if values[0][0] == token.NEWLINE:
             assert values[1][0] == token.INDENT
@@ -439,7 +501,7 @@ def _parse(parse_tree, ctx=ast.Load()):
             result = []
             
             for value in values[2:-1]:
-                result.append(_parse(value, ctx))
+                result.append(self.visit(value, ctx))
             
             assert values[-1][0] == token.DEDENT
             assert values[-1][1] == ''
@@ -447,44 +509,53 @@ def _parse(parse_tree, ctx=ast.Load()):
             raise NotImplementedError
 
         return result
-    elif key == symbol.testlist_safe:
+
+    def visit_testlist_safe(self, values, ctx):
         """testlist_safe: old_test [(',' old_test)+ [',']]"""
         raise NotImplementedError("testlist_safe")
-    elif key == symbol.old_test:
+
+    def visit_old_test(self, values, ctx):
         """old_test: or_test | old_lambdef"""
         raise NotImplementedError("old_test")
-    elif key == symbol.old_lambdef:
+
+    def visit_old_lambdef(self, values, ctx):
         """old_lambdef: 'lambda' [varargslist] ':' old_test"""
         raise NotImplementedError("old_lambdef")
-    elif key == symbol.test:
+
+    def visit_test(self, values, ctx):
         """test: or_test ['if' or_test 'else' test] | lambdef"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.or_test:
+        return self.visit(values[0], ctx)
+
+    def visit_or_test(self, values, ctx):
         """or_test: and_test ('or' and_test)*"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.and_test:
+        return self.visit(values[0], ctx)
+
+    def visit_and_test(self, values, ctx):
         """and_test: not_test ('and' not_test)*"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.not_test:
+        return self.visit(values[0], ctx)
+
+    def visit_not_test(self, values, ctx):
         """not_test: 'not' not_test | comparison"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.comparison:
+        return self.visit(values[0], ctx)
+
+    def visit_comparison(self, values, ctx):
         """comparison: expr (comp_op expr)*"""
         if len(values) > 1: # TODO only doing particular cases here
             node = ast.Compare()
-            node.left = _parse(values[0], ctx)
-            node.ops = _parse(values[1], ctx)
-            node.comparators = [_parse(values[2], ctx)]
+            node.left = self.visit(values[0], ctx)
+            node.ops = self.visit(values[1], ctx)
+            node.comparators = [self.visit(values[2], ctx)]
             return node
         elif len(values) == 1:
-            return _parse(values[0], ctx)
+            return self.visit(values[0], ctx)
         else:
             raise NotImplementedError
-    elif key == symbol.comp_op:
+
+    def visit_comp_op(self, values, ctx):
         """comp_op: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'"""
         if values[0][0] == token.LESS:
             node = ast.Lt()
@@ -494,27 +565,32 @@ def _parse(parse_tree, ctx=ast.Load()):
             return [node]
         else:
             raise NotImplementedError(values)
-    elif key == symbol.expr:
+
+    def visit_expr(self, values, ctx):
         """expr: xor_expr ('|' xor_expr)*"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.xor_expr:
+        return self.visit(values[0], ctx)
+
+    def visit_xor_expr(self, values, ctx):
         """xor_expr: and_expr ('^' and_expr)*"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.and_expr:
+        return self.visit(values[0], ctx)
+
+    def visit_and_expr(self, values, ctx):
         """and_expr: shift_expr ('&' shift_expr)*"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.shift_expr:
+        return self.visit(values[0], ctx)
+
+    def visit_shift_expr(self, values, ctx):
         """shift_expr: arith_expr (('<<'|'>>') arith_expr)*"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.arith_expr:
+        return self.visit(values[0], ctx)
+
+    def visit_arith_expr(self, values, ctx):
         """arith_expr: term (('+'|'-') term)*"""
         if len(values) == 3:
             node = ast.BinOp()
-            node.left = _parse(values[0], ctx)
+            node.left = self.visit(values[0], ctx)
             
             if values[1][0] == token.PLUS:
                 node.op = ast.Add()
@@ -523,17 +599,18 @@ def _parse(parse_tree, ctx=ast.Load()):
             else:
                 raise ValueError("Unexpected symbol/token %s" % values[1])
             
-            node.right = _parse(values[2], ctx)
+            node.right = self.visit(values[2], ctx)
             return node
         elif len(values) == 1:
-            return _parse(values[0], ctx)
+            return self.visit(values[0], ctx)
         else:
             raise NotImplementedError
-    elif key == symbol.term:
+
+    def visit_term(self, values, ctx):
         """term: factor (('*'|'/'|'%'|'//') factor)*"""
         if len(values) == 3:
             node = ast.BinOp()
-            node.left = _parse(values[0], ctx)
+            node.left = self.visit(values[0], ctx)
             
             if values[1][0] == token.PERCENT:
                 node.op = ast.Mod()
@@ -541,24 +618,26 @@ def _parse(parse_tree, ctx=ast.Load()):
                 raise NotImplementedError("Token %s", token.tok_name[values[1][0]])
 
             #raise NotImplementedError(values[2])
-            node.right = _parse(values[2], ctx)
+            node.right = self.visit(values[2], ctx)
             return node
         elif len(values) == 1:
-            return _parse(values[0], ctx)
+            return self.visit(values[0], ctx)
         else:
             raise NotImplementedError
-    elif key == symbol.factor:
+
+    def visit_factor(self, values, ctx):
         """factor: ('+'|'-'|'~') factor | power"""
         # TODO
-        return _parse(values[0], ctx)
-    elif key == symbol.power:
+        return self.visit(values[0], ctx)
+
+    def visit_power(self, values, ctx):
         """power: atom trailer* ['**' factor]"""
         
-        node = _parse(values[0], ctx)
+        node = self.visit(values[0], ctx)
         
         for rest in values[1:]:
             if rest[0] == symbol.trailer:
-                trailer = _parse(rest, ctx)
+                trailer = self.visit(rest, ctx)
 
                 if isinstance(trailer, ast.Attribute):
                     node.ctx = ast.Load()
@@ -575,7 +654,8 @@ def _parse(parse_tree, ctx=ast.Load()):
                 raise NotImplementedError
         
         return node
-    elif key == symbol.atom:
+
+    def visit_atom(self, values, ctx):
         """atom: ('(' [yield_expr|testlist_comp] ')' |
                   '[' [listmaker] ']' |
                   '{' [dictorsetmaker] '}' |
@@ -592,26 +672,30 @@ def _parse(parse_tree, ctx=ast.Load()):
             return node
         elif values[0][0] == token.LPAR:
             node = ast.Tuple()
-            node.elts = _parse(values[1], ctx)
+            node.elts = self.visit(values[1], ctx)
             node.ctx = ctx
             # TODO other values?
             return node
         else:
-            return _parse(values[0], ctx) # TODO
-    elif key == symbol.listmaker:
+            return self.visit(values[0], ctx) # TODO
+
+    def visit_listmaker(self, values, ctx):
         """listmaker: test ( list_for | (',' test)* [','] )"""
         raise NotImplementedError("listmaker")
-    elif key == symbol.testlist_comp:
+
+    def visit_testlist_comp(self, values, ctx):
         """testlist_comp: test ( comp_for | (',' test)* [','] )"""
         result = []
         for value in values:
             if value[0] != token.COMMA:
-                result.append(_parse(value, ctx))
+                result.append(self.visit(value, ctx))
         return result
-    elif key == symbol.lambdef:
+
+    def visit_lambdef(self, values, ctx):
         """lambdef: 'lambda' [varargslist] ':' test"""
         raise NotImplementedError("lambdef")
-    elif key == symbol.trailer:
+
+    def visit_trailer(self, values, ctx):
         """trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME"""
         
         if values[0][0] == token.LPAR:
@@ -619,7 +703,7 @@ def _parse(parse_tree, ctx=ast.Load()):
             
             # TODO
             if values[1][0] == symbol.arglist:
-                node.args = _parse(values[1], ctx)
+                node.args = self.visit(values[1], ctx)
             else:
                 node.args = []
         
@@ -628,7 +712,7 @@ def _parse(parse_tree, ctx=ast.Load()):
             node.kwargs = None # TODO
         elif values[0][0] == token.LSQB:
             node = ast.Subscript()
-            node.slice = _parse(values[1], ctx)
+            node.slice = self.visit(values[1], ctx)
             node.ctx = ctx
         elif values[0][0] == token.DOT:
             node = ast.Attribute()
@@ -638,17 +722,19 @@ def _parse(parse_tree, ctx=ast.Load()):
             raise ValueError
         
         return node
-    elif key == symbol.subscriptlist:
+
+    def visit_subscriptlist(self, values, ctx):
         """subscriptlist: subscript (',' subscript)* [',']"""
         if len(values) == 1:
-            return _parse(values[0], ctx)
+            return self.visit(values[0], ctx)
         else:
             raise NotImplementedError("subscriptlist with len(values) > 1 not supported")
-    elif key == symbol.subscript:
+
+    def visit_subscript(self, values, ctx):
         """subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]"""
         if len(values) > 1:
             if values[0][0] == symbol.test:
-                test = _parse(values[0])
+                test = self.visit(values[0])
                 # TODO
                 
                 node = ast.Slice()
@@ -661,30 +747,35 @@ def _parse(parse_tree, ctx=ast.Load()):
                 raise NotImplementedError("Not implemented: ", values[0][0])
         else:
             raise NotImplementedError("subscript with len(values) <= 1 not supported")
-    elif key == symbol.sliceop:
+    
+    def visit_sliceop(self, values, ctx):
         """sliceop: ':' [test]"""
         raise NotImplementedError("sliceop")
-    elif key == symbol.exprlist:
+
+    def visit_exprlist(self, values, ctx):
         """exprlist: expr (',' expr)* [',']"""
         if len(values) > 1:
             raise NotImplementedError("exprlist with multiple arguments not supported")
-        return [_parse(values[0], ctx)]
-    elif key == symbol.testlist:
+        return [self.visit(values[0], ctx)]
+
+    def visit_testlist(self, values, ctx):
         """testlist: test (',' test)* [',']"""
         if len(values) > 1:
             result = []
             for value in values:
                 if value[0] != token.COMMA:
-                    test = _parse(value, ctx)
+                    test = self.visit(value, ctx)
                     result.append(test)
             return result
         else:
-            return _parse(values[0], ctx)
-    elif key == symbol.dictorsetmaker:
+            return self.visit(values[0], ctx)
+
+    def visit_dictorsetmaker(self, values, ctx):
         """dictorsetmaker: ( (test ':' test (comp_for | (',' test ':' test)* [','])) |
                              (test (comp_for | (',' test)* [','])) )"""
         raise NotImplementedError("dictorsetmaker")
-    elif key == symbol.classdef:
+
+    def visit_classdef(self, values, ctx):
         """classdef: 'class' NAME ['(' [testlist] ')'] ':' suite"""
         
         name = values[1]
@@ -697,30 +788,32 @@ def _parse(parse_tree, ctx=ast.Load()):
                 suite = values[5]
             else:
                 testlist = values[3]
-                node.bases = [_parse(testlist, ctx)] # TODO check list?
+                node.bases = [self.visit(testlist, ctx)] # TODO check list?
                 suite = values[6]
         else:
             suite = values[3]
             
-        node.body = _parse(suite, ctx)
+        node.body = self.visit(suite, ctx)
         node.decorator_list = [] # TODO
         
         return node
-    elif key == symbol.arglist:
+
+    def visit_arglist(self, values, ctx):
         """arglist: (argument ',')* (argument [',']
                                     |'*' test (',' argument)* [',' '**' test]
                                     |'**' test)"""
         result = []
 
         for value in values:
-            result.append(_parse(value, ctx))
+            result.append(self.visit(value, ctx))
             
         return result
-    elif key == symbol.argument:
+
+    def visit_argument(self, values, ctx):
         """argument: test [comp_for] | test '=' test"""
         if len(values) == 2:
-            test = _parse(values[0], ctx)
-            comp_for = _parse(values[1], ctx)
+            test = self.visit(values[0], ctx)
+            comp_for = self.visit(values[1], ctx)
 
             # TODO
             node = ast.GeneratorExp()
@@ -729,43 +822,50 @@ def _parse(parse_tree, ctx=ast.Load()):
 
             return node
         elif len(values) == 1:
-            return _parse(values[0], ctx)
+            return self.visit(values[0], ctx)
         else:
             raise NotImplementedError("symbol.argument with len(values) > 2 not supported")
-    elif key == symbol.list_iter:
+
+    def visit_list_iter(self, values, ctx):
         """list_iter: list_for | list_if"""
         raise NotImplementedError("list_iter")
-    elif key == symbol.list_for:
+
+    def visit_list_for(self, values, ctx):
         """list_for: 'for' exprlist 'in' testlist_safe [list_iter]"""
         raise NotImplementedError("list_for")
-    elif key == symbol.list_if:
+
+    def visit_list_if(self, values, ctx):
         """list_if: 'if' old_test [list_iter]"""
         raise NotImplementedError("list_if")
-    elif key == symbol.comp_iter:
+
+    def visit_comp_iter(self, values, ctx):
         """comp_iter: comp_for | comp_if"""
         raise NotImplementedError("comp_iter")
-    elif key == symbol.comp_for:
+
+    def visit_comp_for(self, values, ctx):
         """comp_for: 'for' exprlist 'in' or_test [comp_iter]"""
         if len(values) > 4:
             raise NotImplementedError("comp_for with more than 4 arguments not supported")
 
         node = ast.comprehension()
-        node.target = _parse(values[1], ast.Store())[0] # TODO
-        node.iter = _parse(values[3], ctx)
+        node.target = self.visit(values[1], ast.Store())[0] # TODO
+        node.iter = self.visit(values[3], ctx)
         node.ifs = []
         
         return node
-    elif key == symbol.testlist1:
+
+    def visit_testlist1(self, values, ctx):
         """testlist1: test (',' test)*"""
         raise NotImplementedError("testlist1")
-    elif key == symbol.encoding_decl:
+
+    def visit_encoding_decl(self, values, ctx):
         """encoding_decl: NAME"""
         raise NotImplementedError("encoding_decl")
-    elif key == symbol.yield_expr:
+        
+    def visit_yield_expr(self, values, ctx):
         """yield_expr: 'yield' [testlist]"""
         raise NotImplementedError("yield_expr")
-    elif key == token.STRING:
+
+    def visit_STRING(self, values, ctx):
         node = ast.Str(ast.literal_eval(values[0])) # TODO
         return node
-    else:
-        raise ValueError("Unexpected symbol/token `%d'" % key)
