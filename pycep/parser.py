@@ -533,7 +533,7 @@ def _flow_stmt(tokens):
     result = [symbol.flow_stmt]
     
     try:
-        result.append(matcher(tokens, [_return_stmt]))
+        result.append(matcher(tokens, [_break_stmt, _return_stmt, _yield_stmt]))
     except SyntaxError:
         raise syntax_error("Expecting: break_stmt | continue_stmt | return_stmt | " \
             "raise_stmt | yield_stmt", tokens.peek())
@@ -547,7 +547,15 @@ def _break_stmt(tokens):
 
         break_stmt: 'break'
     """
-    raise NotImplementedError
+    result = [symbol.break_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "break"):
+        raise SyntaxError
+    
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    return result
 
 def _continue_stmt(tokens):
     """Parse a continue statement.
@@ -585,7 +593,11 @@ def _yield_stmt(tokens):
 
         yield_stmt: yield_expr
     """
-    raise NotImplementedError
+    result = [symbol.yield_stmt]
+    
+    result.append(_yield_expr(tokens))
+    
+    return result
 
 def _raise_stmt(tokens):
     """Parse a raise statement.
@@ -746,7 +758,7 @@ def _compound_stmt(tokens):
     result = [symbol.compound_stmt]
   
     try:
-        result.append(matcher(tokens, [_while_stmt, _try_stmt, _funcdef,
+        result.append(matcher(tokens, [_if_stmt, _while_stmt, _try_stmt, _funcdef,
             _for_stmt, _classdef]))
     except SyntaxError:
         raise syntax_error("Expecting: if_stmt | while_stmt | for_stmt | "
@@ -761,7 +773,26 @@ def _if_stmt(tokens):
 
         if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
     """
-    raise NotImplementedError
+    result = [symbol.if_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "if"):
+        raise SyntaxError
+    result.append((token.NAME, "if"))
+    tokens.next()
+    
+    result.append(_test(tokens))
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+        raise SyntaxError
+    result.append((token.COLON, ":"))
+    tokens.next()
+    
+    result.append(_suite(tokens))
+    
+    if tokens.peek()[1] == "elif" or tokens.peek()[1] == "else":
+        raise NotImplementedError
+    
+    return result
 
 def _while_stmt(tokens):
     """Parse a while statement.
