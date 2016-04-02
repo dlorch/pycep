@@ -106,8 +106,6 @@ def _file_input(tokens):
             if tokens.peek()[0] == token.NEWLINE:
                 result.append((tokens.peek()[0], ''))
                 tokens.next()
-            elif tokens.peek()[0] == token.N_TOKENS: # skip comments
-                tokens.next()
             else:
                 result.append(_stmt(tokens))
     except StopIteration:
@@ -1926,7 +1924,7 @@ def matcher(tokens, choices, repeat=False, optional=False):
 class TokenIterator(object):
     """Wrapper for token generator which adds 1-token lookahead peeking and
     backtracking seeks. Furthermore, physical line breaks (``tokenize.NL``)
-    are skipped from the input.
+    and comments (``token.N_TOKENS``) are skipped from the input.
        
     >>> from pycep.tokenizer import generate_tokens
     >>> from StringIO import StringIO
@@ -1971,7 +1969,7 @@ class TokenIterator(object):
             value = self._values[self.index + 1]
         else:
             value = self._peekable.peek()
-            while value[0] == tokenize.NL: # skip physical line breaks
+            while value[0] == tokenize.NL or value[0] == token.N_TOKENS: # skip physical line breaks and comments
                 self._peekable.next()
                 value = self._peekable.peek()
 
