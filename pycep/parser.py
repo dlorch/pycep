@@ -6,7 +6,6 @@ import parser
 import token
 import tokenize
 import symbol
-from more_itertools import peekable
 from StringIO import StringIO
 
 def suite(source, totuple=False):
@@ -312,7 +311,7 @@ def _stmt(tokens):
         result.append(matcher(tokens, [_simple_stmt, _compound_stmt]))
     except SyntaxError:
         raise syntax_error("Expecting simple_stmt | compound_stmt", tokens.peek())
-            
+
     return result
 
 def _simple_stmt(tokens):
@@ -2016,9 +2015,9 @@ def matcher(tokens, choices, repeat=False, optional=False):
     return result
 
 class TokenIterator(object):
-    """Wrapper for token generator which adds 1-token lookahead peeking and
-    backtracking seeks. Furthermore, physical line breaks (``tokenize.NL``)
-    and comments (``token.N_TOKENS``) are skipped from the input.
+    """Wrapper for token generator which adds peeking and seeking.
+    Furthermore, physical line breaks (``tokenize.NL``) and comments
+    (``token.N_TOKENS``) are skipped from the input.
        
     >>> from pycep.tokenizer import generate_tokens
     >>> from StringIO import StringIO
@@ -2039,38 +2038,51 @@ class TokenIterator(object):
 
     def __init__(self, generator):
         self.index = -1
-        self._values = []
-        self._peekable = peekable(generator)
+        self._values = list(generator)
 
     def __iter__(self):
         return self
 
     def next(self):
-        if self.index >= -1 and self.index + 1 < len(self._values):
+        value = self._next()
+
+        while self._is_skip(value[0]):
+            value = self._next()
+
+        return value
+    
+    def _next(self):
+        if self.index + 1 < len(self._values):
             self.index += 1
             value = self._values[self.index]
         else:
-            value = self._peekable.next()
-            while value[0] == tokenize.NL: # skip physical line breaks
-                value = self._peekable.next()
-            self.index += 1
-            self._values.append(value)
+            raise StopIteration
 
         return value
     
     def peek(self):
-        if self.index >= -1 and self.index + 1 < len(self._values):
-            value = self._values[self.index + 1]
-        else:
-            value = self._peekable.peek()
-            while value[0] == tokenize.NL or value[0] == token.N_TOKENS: # skip physical line breaks and comments
-                self._peekable.next()
-                value = self._peekable.peek()
+        lookahead = 1
+        value = self._peek(lookahead)
+
+        while self._is_skip(value[0]):
+            lookahead += 1
+            value = self._peek(lookahead)
 
         return value
+        
+    def _peek(self, lookahead):
+        if self.index + lookahead < len(self._values):
+            value = self._values[self.index + lookahead]
+        else:
+            raise StopIteration
+            
+        return value
+
+    def _is_skip(self, value):
+        return value == tokenize.NL or value == token.N_TOKENS # physical line breaks and comments
 
     def seek(self, index):
-        if index < -1 or index > len(self._values):
-            raise IndexError("Cannot seek forward: only backtracking allowed")
+        if index < -1 or index > len(self._values) - 1:
+            raise IndexError("Invalid seek")
         
         self.index = index
