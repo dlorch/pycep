@@ -789,9 +789,30 @@ def _if_stmt(tokens):
     
     result.append(_suite(tokens))
     
-    if tokens.peek()[1] == "elif" or tokens.peek()[1] == "else":
+    if tokens.peek()[1] == "elif":
         raise NotImplementedError
     
+    def else_suite(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "else"):
+            raise SyntaxError
+        result.append((token.NAME, "else"))
+        tokens.next()
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+            raise SyntaxError
+        result.append((token.COLON, ":"))
+        tokens.next()
+        
+        result.append(_suite(tokens))
+        
+        return result
+    
+    else_result = matcher(tokens, [else_suite], optional=True)
+    if else_result:
+        result = result + else_result
+        
     return result
 
 def _while_stmt(tokens):
