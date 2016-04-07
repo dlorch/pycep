@@ -1000,7 +1000,13 @@ def _testlist_safe(tokens):
 
         testlist_safe: old_test [(',' old_test)+ [',']]
     """
-    raise NotImplementedError
+    result = [symbol.testlist_safe]
+
+    result.append(_old_test(tokens))
+    
+    # TODO
+
+    return result
 
 def _old_test(tokens):
     """Parse an old test.
@@ -1009,7 +1015,13 @@ def _old_test(tokens):
 
         old_test: or_test | old_lambdef
     """
-    raise NotImplementedError
+    result = [symbol.old_test]
+    
+    result.append(_or_test(tokens))
+
+    # TODO
+    
+    return result
 
 def _old_lambdef(tokens):
     """Parse an old lambda definition.
@@ -1070,10 +1082,22 @@ def _not_test(tokens):
         not_test: 'not' not_test | comparison
     """
     result = [symbol.not_test]
-    result.append(_comparison(tokens))
 
-    # TODO: not not_test
+    # 'not' not_test
+    def not_test(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "not"):
+            raise SyntaxError
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+
+        result.append(_not_test(tokens))
+        
+        return result
     
+    result = result + matcher(tokens, [not_test, [_comparison]])
+
     return result
 
 def _comparison(tokens):
@@ -1376,20 +1400,17 @@ def _listmaker(tokens):
     
     # (',' test)*
     def comma_test_repeat(tokens):
-        return matcher(tokens, [comma_test], repeat=True)
+        return matcher(tokens, [comma_test], repeat=True, optional=True)
 
     # (',' test)* [',']
     def comma_test_repeat_comma(tokens):
         result = comma_test_repeat(tokens)
-        if len(result) == 0:
-            raise SyntaxError
         if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
             result.append((token.COMMA, ","))
             tokens.next()
         return result
     
-    result = result + matcher(tokens, [_list_for, comma_test_repeat_comma])
-
+    result = result + matcher(tokens, [[_list_for], comma_test_repeat_comma])
     return result
 
 def _testlist_comp(tokens):
@@ -1716,7 +1737,11 @@ def _list_iter(tokens):
 
         list_iter: list_for | list_if
     """
-    raise NotImplementedError
+    result = [symbol.list_iter]
+
+    result.append(matcher(tokens, [_list_for, _list_if]))
+
+    return result
 
 def _list_for(tokens):
     """Parse a list for.
@@ -1727,16 +1752,20 @@ def _list_for(tokens):
     """
     result = [symbol.list_for]
     
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "for"):
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "for"):
         raise SyntaxError
-        
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+
     result.append(_exprlist(tokens))
 
     if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
         raise SyntaxError
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
 
     result.append(_testlist_safe(tokens))
-    
+
     list_iter = matcher(tokens, [_list_iter], optional=True)
     if list_iter:
         result.append(list_iter)
@@ -1750,7 +1779,20 @@ def _list_if(tokens):
 
         list_if: 'if' old_test [list_iter]
     """
-    raise NotImplementedError
+    result = [symbol.list_if]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "if"):
+        raise SyntaxError
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+
+    result.append(_old_test(tokens))
+
+    list_iter = matcher(tokens, [_list_iter], optional=True)
+    if list_iter:
+        result.append(list_iter)
+       
+    return result
 
 def _comp_iter(tokens):
     """Parse a comp iter.
