@@ -28,3 +28,7 @@ def globalvar():
     glob = 5
     another = 6
 globalvar()
+
+exec "print 5+5"
+exec "print 5+5" in globals()
+exec "print 5+5" in globals(), locals()

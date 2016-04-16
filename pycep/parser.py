@@ -404,7 +404,7 @@ def _small_stmt(tokens):
 
     try:
         result.append(matcher(tokens, [_expr_stmt, _print_stmt, _del_stmt,
-            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt])) # TODO
+            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt, _exec_stmt])) # TODO
     except SyntaxError:
         raise syntax_error("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
@@ -840,7 +840,50 @@ def _exec_stmt(tokens):
 
         exec_stmt: 'exec' expr ['in' test [',' test]]
     """
-    raise NotImplementedError
+    result = [symbol.exec_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "exec"):
+        raise syntax_error("Expecting: 'exec'", tokens.peek())
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    result.append(_expr(tokens))
+
+    # ',' test
+    def comma_test(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise SyntaxError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        
+        result.append(_test(tokens))
+                
+        return result
+
+    # 'in' test [',' test]
+    def in_test(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
+            raise SyntaxError
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+        
+        result.append(_test(tokens))
+        
+        option = matcher(tokens, [comma_test], optional=True)
+        if option:
+            result = result + option
+                
+        return result
+
+    option = matcher(tokens, [in_test], optional=True)
+    if option:
+        result = result + option
+
+    return result
 
 def _assert_stmt(tokens):
     """Parse an assert statement.
