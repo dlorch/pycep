@@ -139,30 +139,20 @@ def _decorator(tokens):
     """
     result = [symbol.decorator]
     
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "@"):
-        raise SyntaxError("Expecting '@'")
-    result.append((token.AT, "@"))
-    tokens.next()
-    
+    result.append(tokens.accept(token.OP, "@", result_token=token.AT, error_msg="Expecting '@'"))
     result.append(_dotted_name(tokens))
         
     # [ '(' [arglist] ')' ]
     def arglist(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "("):
-            raise SyntaxError("Expecting '('")
-        result.append((token.LPAR, "("))
-        tokens.next()
+        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR, error_msg="Expecting '('"))
         
         option = matcher(tokens, [_arglist], optional=True)
         if option:
             result.append(option)
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
-            raise SyntaxError("Expecting ')'")
-        result.append((token.RPAR, ")"))
-        tokens.next()
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting ')'"))
         
         return result
     
@@ -170,10 +160,7 @@ def _decorator(tokens):
     if option:
         result = result + option
     
-    if tokens.peek()[0] != token.NEWLINE:
-        raise SyntaxError
-    result.append((token.NEWLINE, ''))
-    tokens.next()
+    result.append(tokens.accept(token.NEWLINE, result_name=""))
     
     return result
 
@@ -200,7 +187,6 @@ def _decorated(tokens):
     result = [symbol.decorated]
     
     result.append(_decorators(tokens))
-    
     result.append(matcher(tokens, [_classdef, _funcdef]))
     
     return result
@@ -214,23 +200,10 @@ def _funcdef(tokens):
     """
     result = [symbol.funcdef]
 
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "def"):
-        raise syntax_error("Expecting 'def'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
-    if not (tokens.peek()[0] == token.NAME):
-        raise syntax_error("Expecting function name", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-
-    result.append(_parameters(tokens)) 
-
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ':'):
-        raise syntax_error("Expecting ':'", tokens.peek())
-    result.append((token.COLON, ':'))
-    tokens.next()
-    
+    result.append(tokens.accept(token.NAME, "def", error_msg="Expecting 'def'"))
+    result.append(tokens.accept(token.NAME, error_msg="Expecting function name"))
+    result.append(_parameters(tokens))
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting ':'"))
     result.append(_suite(tokens))
     
     return result
@@ -244,19 +217,13 @@ def _parameters(tokens):
     """
     result = [symbol.parameters]
 
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == '('):
-        raise syntax_error("Expecting '('", tokens.peek())
-    result.append((token.LPAR, '('))
-    tokens.next()
+    result.append(tokens.accept(token.OP, "(", result_token=token.LPAR, error_msg="Expecting '('"))
 
     varargslist = matcher(tokens, [_varargslist], optional=True)
     if varargslist:
         result.append(varargslist)
-    
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ')'):
-        raise syntax_error("Expecting ')'", tokens.peek())
-    result.append((token.RPAR, ')'))
-    tokens.next()
+
+    result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting ')'"))
 
     return result
 
@@ -288,11 +255,8 @@ def _varargslist(tokens):
     # ',' fpdef ['=' test]
     def option2b(tokens):
         result = []
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
         
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result = result + option2a(tokens)
         
         return result
@@ -330,8 +294,7 @@ def _fpdef(tokens):
         result.append((token.OP, "("))
         tokens.next()
         result.append(_fplist(tokens))
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
-            raise SyntaxError
+        result.append(tokens.accept(token.OP, ")"))
     else:
         raise SyntaxError
 
@@ -436,10 +399,7 @@ def _expr_stmt(tokens):
         
     def option2(tokens):
         result = []
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "="):
-            raise SyntaxError
-        result.append((token.EQUAL, "="))
-        tokens.next()
+        result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
         result.append(yield_expr_or_testlist(tokens))
         return result
 
@@ -533,13 +493,8 @@ def _print_stmt(tokens):
     # (',' test)
     def comma_test(tokens):
         result = []
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
-        
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_test(tokens))
-
         return result
 
     if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "print":
@@ -561,11 +516,7 @@ def _del_stmt(tokens):
     """
     result = [symbol.del_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "del"):
-        raise SyntaxError("Expecting 'del'")
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
+    result.append(tokens.accept(token.NAME, "del", error_msg="Expecting 'del'"))    
     result.append(_exprlist(tokens))
     
     return result
@@ -579,10 +530,7 @@ def _pass_stmt(tokens):
     """
     result = [symbol.pass_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "pass"):
-        raise SyntaxError("Expecting 'pass'")
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
+    result.append(tokens.accept(token.NAME, "pass", error_msg="Expecting 'pass'"))
     
     return result
 
@@ -613,11 +561,7 @@ def _break_stmt(tokens):
     """
     result = [symbol.break_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "break"):
-        raise SyntaxError
-    
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
+    result.append(tokens.accept(token.NAME, "break", error_msg="Expecting 'break'"))
     
     return result
 
@@ -630,11 +574,7 @@ def _continue_stmt(tokens):
     """
     result = [symbol.continue_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "continue"):
-        raise SyntaxError
-    
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
+    result.append(tokens.accept(token.NAME, "continue", error_msg="Expecting 'continue'"))
     
     return result
 
@@ -647,10 +587,7 @@ def _return_stmt(tokens):
     """
     result = [symbol.return_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "return"):
-        raise SyntaxError
-    result.append((token.NAME, "return"))
-    tokens.next()
+    result.append(tokens.accept(token.NAME, "return", error_msg="Expecting 'return'"))
     
     testlist = matcher(tokens, [_testlist], optional=True)
     if testlist:
@@ -703,12 +640,7 @@ def _import_name(tokens):
     """
     result = [symbol.import_name]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "import"):
-        raise SyntaxError
-        
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
+    result.append(tokens.accept(token.NAME, "import", error_msg="Expecting 'import'"))    
     result.append(_dotted_as_names(tokens))
 
     return result
@@ -782,12 +714,8 @@ def _dotted_name(tokens):
     """
     result = [symbol.dotted_name]
     
-    if not tokens.peek()[0] == token.NAME:
-        raise syntax_error("Expecting: NAME", tokens.peek())
+    result.append(tokens.accept(token.NAME, error_msg="Expecting NAME"))
         
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
     if tokens.peek()[1] == ".":
         raise NotImplementedError
     
@@ -802,29 +730,15 @@ def _global_stmt(tokens):
     """
     result = [symbol.global_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "global"):
-        raise syntax_error("Expecting: 'global'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
-    if not tokens.peek()[0] == token.NAME:
-        raise SyntaxError
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
+    result.append(tokens.accept(token.NAME, "global", error_msg="Expecting: 'global'"))
+    result.append(tokens.accept(token.NAME))
     
     # ',' NAME
     def comma_name(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
-        
-        if not tokens.peek()[0] == token.NAME:
-            raise SyntaxError          
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
+        result.append(tokens.accept(token.OP, result_token=token.COMMA))
+        result.append(tokens.accept(token.NAME))        
         
         return result
     
@@ -843,22 +757,14 @@ def _exec_stmt(tokens):
     """
     result = [symbol.exec_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "exec"):
-        raise syntax_error("Expecting: 'exec'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
+    result.append(tokens.accept(token.NAME, "exec", error_msg="Expecting 'exec'"))
     result.append(_expr(tokens))
 
     # ',' test
     def comma_test(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
-        
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_test(tokens))
                 
         return result
@@ -867,11 +773,7 @@ def _exec_stmt(tokens):
     def in_test(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
-            raise SyntaxError
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
-        
+        result.append(tokens.accept(token.NAME, "in"))
         result.append(_test(tokens))
         
         option = matcher(tokens, [comma_test], optional=True)
@@ -895,22 +797,14 @@ def _assert_stmt(tokens):
     """
     result = [symbol.assert_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "assert"):
-        raise syntax_error("Expecting: 'assert'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
+    result.append(tokens.accept(token.NAME, "assert", error_msg="Expecting 'assert'"))
     result.append(_test(tokens))
 
     # ',' test
     def comma_test(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
-        
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_test(tokens))
                 
         return result
@@ -932,7 +826,7 @@ def _compound_stmt(tokens):
   
     try:
         result.append(matcher(tokens, [_if_stmt, _while_stmt, _for_stmt, _try_stmt,
-        _with_stmt, _funcdef, _classdef, _decorated]))
+            _with_stmt, _funcdef, _classdef, _decorated]))
     except SyntaxError:
         raise syntax_error("Expecting: if_stmt | while_stmt | for_stmt | "
             "try_stmt | with_stmt | funcdef | classdef | decorated", tokens.peek())
@@ -948,18 +842,9 @@ def _if_stmt(tokens):
     """
     result = [symbol.if_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "if"):
-        raise SyntaxError
-    result.append((token.NAME, "if"))
-    tokens.next()
-    
+    result.append(tokens.accept(token.NAME, "if", error_msg="Expecting 'if'"))
     result.append(_test(tokens))
-    
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise SyntaxError
-    result.append((token.COLON, ":"))
-    tokens.next()
-    
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
     
     if tokens.peek()[1] == "elif":
@@ -968,16 +853,8 @@ def _if_stmt(tokens):
     def else_suite(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "else"):
-            raise SyntaxError
-        result.append((token.NAME, "else"))
-        tokens.next()
-        
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-            raise SyntaxError
-        result.append((token.COLON, ":"))
-        tokens.next()
-        
+        result.append(tokens.accept(token.NAME, "else"))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
         result.append(_suite(tokens))
         
         return result
@@ -997,26 +874,15 @@ def _while_stmt(tokens):
     """
     result = [symbol.while_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "while"):
-        raise syntax_error("Expecting 'while'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "while", error_msg="Expecting 'while'"))
     result.append(_test(tokens))
-
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise syntax_error("Expecting ':'", tokens.peek())
-    result.append((token.COLON, ":"))
-    tokens.next()
-
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
 
     if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "else":
         tokens.next()
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-            raise syntax_error("Expecting ':'", tokens.peek())
-            
+        result.append(tokens.accept(token.OP, ":", error_msg="Expecting: ':'"))
         result.append(_suite(tokens))
 
     return result
@@ -1030,40 +896,18 @@ def _for_stmt(tokens):
     """
     result = [symbol.for_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "for"):
-        raise SyntaxError
-    result.append((token.NAME, "for"))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "for"))
     result.append(_exprlist(tokens))
-    
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
-        raise SyntaxError
-    result.append((token.NAME, "in"))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "in"))
     result.append(_testlist(tokens))
-    
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise SyntaxError
-    result.append((token.COLON, ":"))
-    tokens.next()
-    
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
     
     def optional_else(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "else"):
-            raise SyntaxError
-        result.append((token.NAME, "else"))
-        tokens.next()
-
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-            raise SyntaxError
-        result.append((token.COLON, ":"))
-        tokens.next()
-
+        result.append(tokens.accept(token.NAME, "else"))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
         result.append(_suite(tokens))
 
         return result
@@ -1087,29 +931,14 @@ def _try_stmt(tokens):
     """
     result = [symbol.try_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "try"):
-        raise syntax_error("Expecting: try", tokens.peek())
-    
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise syntax_error("Expecting: ':'", tokens.peek())
-
-    result.append((token.COLON, tokens.peek()[1]))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "try", error_msg="Expecting: 'try'"))
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
     result.append(_suite(tokens))
     
     # TODO repeat
     result.append(_except_clause(tokens))
     
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise syntax_error("Expecting: ':'", tokens.peek())
-
-    result.append((token.COLON, tokens.peek()[1]))
-    tokens.next()
-
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
     result.append(_suite(tokens))
 
     # TODO else/finally
@@ -1125,22 +954,14 @@ def _with_stmt(tokens):
     """
     result = [symbol.with_stmt]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "with"):
-        raise syntax_error("Expecting: 'with'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "with", error_msg="Expecting: 'with'"))
     result.append(_with_item(tokens))
     
     # ',' with_item
     def comma_with_item(tokens):
         result = []
 
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
-
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_with_item(tokens))
         
         return result
@@ -1149,11 +970,7 @@ def _with_stmt(tokens):
     if option:
         result = result + option
     
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise syntax_error("Expecting: ':'", tokens.peek())
-    result.append((token.COLON, ":"))
-    tokens.next()
-
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
     result.append(_suite(tokens))
     
     return result
@@ -1173,11 +990,7 @@ def _with_item(tokens):
     def as_expr(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "as"):
-            raise SyntaxError
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
-        
+        result.append(tokens.accept(token.NAME, "as"))
         result.append(_expr(tokens))
         
         return result
@@ -1197,10 +1010,7 @@ def _except_clause(tokens):
     """
     result = [symbol.except_clause]
 
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "except"):
-        raise syntax_error("Expecting 'except'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
+    result.append(tokens.accept(token.NAME, "except", error_msg="Expecting: 'except'"))
     
     # TODO
     result.append(_test(tokens))
@@ -1220,10 +1030,7 @@ def _suite(tokens):
         result.append((token.NEWLINE, ""))
         tokens.next()
 
-        if tokens.peek()[0] != token.INDENT:
-            raise syntax_error("Expecting INDENT", tokens.peek())
-        result.append((token.INDENT, ''))
-        tokens.next()
+        result.append(tokens.accept(token.INDENT, result_name='', error_msg="Expecting INDENT"))
         
         try:
             while tokens.peek()[0] != token.DEDENT:
@@ -1232,10 +1039,7 @@ def _suite(tokens):
         except StopIteration:
             pass # raise "Expecting DEDENT" in next block
 
-        if tokens.peek()[0] != token.DEDENT:
-            raise syntax_error("Expecting DEDENT", tokens.peek())
-        result.append((token.DEDENT, ''))
-        tokens.next()
+        result.append(tokens.accept(token.DEDENT, result_name='', error_msg="Expecting DEDENT"))
     else:
         raise NotImplementedError
 
@@ -1335,11 +1139,7 @@ def _not_test(tokens):
     def not_test(tokens):
         result = []
         
-        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "not"):
-            raise SyntaxError
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
-
+        result.append(tokens.accept(token.NAME, "not"))
         result.append(_not_test(tokens))
         
         return result
@@ -1597,10 +1397,7 @@ def _atom(tokens):
         listmaker = matcher(tokens, [_listmaker], optional=True)
         if listmaker:
             result.append(listmaker)
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "]"):
-            raise SyntaxError
-        result.append((token.RSQB, "]"))
-        tokens.next()
+        result.append(tokens.accept(token.OP, "]", result_token=token.RSQB))
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "{":
         raise NotImplementedError
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "`":
@@ -1639,10 +1436,7 @@ def _listmaker(tokens):
     # ',' test
     def comma_test(tokens):
         result = []
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_test(tokens))
         return result
     
@@ -1712,29 +1506,20 @@ def _trailer(tokens):
         arglist = matcher(tokens, [_arglist], optional=True)
         if arglist:
             result.append(arglist)
-
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
-            raise syntax_error("Expecting ')'", tokens.peek())
-        result.append((token.RPAR, ")"))
-        tokens.next()
+            
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting: ')'"))
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
         result.append((token.LSQB, "["))
         tokens.next()
         
         result.append(_subscriptlist(tokens))
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "]"):
-            raise syntax_error("Expecting ')'", tokens.peek())
-        result.append((token.RSQB, "]"))
-        tokens.next()
+        result.append(tokens.accept(token.OP, "]", result_token=token.RSQB, error_msg="Expecting: ']'"))
     elif tokens.peek()[0] == token.OP and tokens.peek()[1] == ".":
         result.append((token.DOT, "."))
         tokens.next()
         
-        if not (tokens.peek()[0] == token.NAME):
-            raise syntax_error("Expecting name", tokens.peek())
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
+        result.append(tokens.accept(token.NAME, error_msg="Expecting NAME"))
     else:
         raise syntax_error("Expecting '(', '[' or '.'", tokens.peek())
     
@@ -1781,10 +1566,7 @@ def _subscript(tokens):
     # TODO
     result.append(_test(tokens))
     
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise SyntaxError
-    result.append((token.COLON, tokens.peek()[1]))
-    tokens.next()
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
 
     return result
 
@@ -1811,10 +1593,7 @@ def _exprlist(tokens):
     # ',' expr
     def comma_expr(tokens):
         result = []
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_expr(tokens))
         return result
 
@@ -1870,17 +1649,8 @@ def _classdef(tokens):
     """
     result = [symbol.classdef]
 
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "class"):
-        raise syntax_error("Expecting 'class'", tokens.peek())
-        
-    result.append((token.NAME, "class"))
-    tokens.next()
-    
-    if not (tokens.peek()[0] == token.NAME):
-        raise syntax_error("Expecting class name", tokens.peek())
-    
-    result.append((token.NAME, tokens.peek()[1]))
-    tokens.next()
+    result.append(tokens.accept(token.NAME, "class", error_msg="Expecting: 'class'"))
+    result.append(tokens.accept(token.NAME, error_msg="Expecting class name"))
     
     if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
         result.append((token.LPAR, "("))
@@ -1890,17 +1660,9 @@ def _classdef(tokens):
         if testlist:
             result.append(testlist)
         
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
-            raise syntax_error("Expecting ')'", tokens.peek())
-        result.append((token.RPAR, ")"))
-        tokens.next()
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting: ')'"))
     
-    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
-        raise syntax_error("Expecting ':'", tokens.peek())
-
-    result.append((token.COLON, ":"))
-    tokens.next()
-
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
     result.append(_suite(tokens))
 
     return result
@@ -1920,10 +1682,7 @@ def _arglist(tokens):
     def argument_comma(tokens):
         result = []
         result.append(_argument(tokens))
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
-            raise SyntaxError
-        result.append((token.COMMA, ","))
-        tokens.next()
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         return result
         
     result = result + matcher(tokens, [argument_comma], repeat=True, optional=True)
@@ -1965,10 +1724,7 @@ def _argument(tokens):
     # '=' test
     def equals_test(tokens):
         result = []
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "="):
-            raise SyntaxError
-        result.append((token.EQUAL, "="))
-        tokens.next()
+        result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
         result.append(_test(tokens))
         return result
     
@@ -2000,18 +1756,9 @@ def _list_for(tokens):
     """
     result = [symbol.list_for]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "for"):
-        raise SyntaxError
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "for", error_msg="Expecting: 'for'"))
     result.append(_exprlist(tokens))
-
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
-        raise SyntaxError
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "in"))
     result.append(_testlist_safe(tokens))
 
     list_iter = matcher(tokens, [_list_iter], optional=True)
@@ -2029,11 +1776,7 @@ def _list_if(tokens):
     """
     result = [symbol.list_if]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "if"):
-        raise SyntaxError
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "if"))
     result.append(_old_test(tokens))
 
     list_iter = matcher(tokens, [_list_iter], optional=True)
@@ -2060,19 +1803,12 @@ def _comp_for(tokens):
     """
     result = [symbol.comp_for]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "for"):
-        raise SyntaxError
-    result.append((token.NAME, "for"))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "for", error_msg="Expecting: 'for'"))
     result.append(_exprlist(tokens))
-
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "in"):
-        raise SyntaxError
-    result.append((token.NAME, "in"))
-    tokens.next()
-
+    result.append(tokens.accept(token.NAME, "in"))
     result.append(_or_test(tokens))
+
+    # TODO: comp_iter
 
     return result
 
@@ -2112,11 +1848,7 @@ def _yield_expr(tokens):
     """
     result = [symbol.yield_expr]
     
-    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "yield"):
-        raise syntax_error("Expecting 'yield'", tokens.peek())
-    result.append((tokens.peek()[0], tokens.peek()[1]))
-    tokens.next()
-    
+    result.append(tokens.accept(token.NAME, "yield", error_msg="Expecting: 'yield'"))    
     result.append(matcher(tokens, [_testlist], optional=True))
     
     return result
@@ -2314,3 +2046,27 @@ class TokenIterator(object):
             raise IndexError("Invalid seek")
         
         self.index = index
+    
+    def accept(self, token_type, token_name=None, result_token=None, result_name=None, error_msg=None):    
+        if error_msg:
+            error = syntax_error(error_msg, self.peek())
+        else:
+            error = SyntaxError
+        
+        if self.peek()[0] != token_type:
+            raise error
+            
+        if not token_name is None and (self.peek()[1] != token_name):
+            raise error
+
+        if result_token is None:
+            result_token = self.peek()[0]
+
+        if result_name is None:
+            result_name = self.peek()[1]
+                
+        result = (result_token, result_name)
+            
+        self.next()
+            
+        return result
