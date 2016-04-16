@@ -1,0 +1,21 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Debug PyCep",
+			"type": "python",
+			"request": "launch",
+			"stopOnEntry": true,
+			"program": "${workspaceRoot}/pycep/cli.py",
+			"args": ["${workspaceRoot}/pycep/tests/programs/fib.py"],
+			"debugOptions": [
+				"WaitOnAbnormalExit",
+				"WaitOnNormalExit",
+				"RedirectOutput"
+			],
+			"env": {
+                "PYTHONPATH": "${workspaceRoot}"
+            }
+		}
+	]
+}
