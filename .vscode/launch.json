@@ -14,8 +14,8 @@
 				"RedirectOutput"
 			],
 			"env": {
-                "PYTHONPATH": "${workspaceRoot}"
-            }
+				"PYTHONPATH": "${workspaceRoot}"
+			}
 		}
 	]
 }
