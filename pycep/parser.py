@@ -403,8 +403,8 @@ def _small_stmt(tokens):
     result = [symbol.small_stmt]
 
     try:
-        result.append(matcher(tokens, [_expr_stmt, _print_stmt, _pass_stmt,
-            _flow_stmt, _import_stmt])) # TODO
+        result.append(matcher(tokens, [_expr_stmt, _print_stmt, _del_stmt,
+            _pass_stmt, _flow_stmt, _import_stmt])) # TODO
     except SyntaxError:
         raise syntax_error("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
@@ -558,8 +558,16 @@ def _del_stmt(tokens):
 
         del_stmt: 'del' exprlist
     """
-    raise NotImplementedError
+    result = [symbol.del_stmt]
     
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "del"):
+        raise SyntaxError("Expecting 'del'")
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    result.append(_exprlist(tokens))
+    
+    return result
     
 def _pass_stmt(tokens):
     """Parse a pass statement.
