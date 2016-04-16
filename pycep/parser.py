@@ -587,7 +587,8 @@ def _flow_stmt(tokens):
     result = [symbol.flow_stmt]
     
     try:
-        result.append(matcher(tokens, [_break_stmt, _return_stmt, _yield_stmt]))
+        result.append(matcher(tokens, [_break_stmt, _continue_stmt, _return_stmt,
+            _yield_stmt]))
     except SyntaxError:
         raise syntax_error("Expecting: break_stmt | continue_stmt | return_stmt | " \
             "raise_stmt | yield_stmt", tokens.peek())
@@ -618,7 +619,15 @@ def _continue_stmt(tokens):
 
         continue_stmt: 'continue'
     """
-    raise NotImplementedError
+    result = [symbol.continue_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "continue"):
+        raise SyntaxError
+    
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    return result
 
 def _return_stmt(tokens):
     """Parse a return statement.
