@@ -404,7 +404,8 @@ def _small_stmt(tokens):
 
     try:
         result.append(matcher(tokens, [_expr_stmt, _print_stmt, _del_stmt,
-            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt, _exec_stmt])) # TODO
+            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt, _exec_stmt,
+            _assert_stmt]))
     except SyntaxError:
         raise syntax_error("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
@@ -892,7 +893,33 @@ def _assert_stmt(tokens):
 
         assert_stmt: 'assert' test [',' test]
     """
-    raise NotImplementedError
+    result = [symbol.assert_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "assert"):
+        raise syntax_error("Expecting: 'assert'", tokens.peek())
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    result.append(_test(tokens))
+
+    # ',' test
+    def comma_test(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise SyntaxError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        
+        result.append(_test(tokens))
+                
+        return result
+
+    option = matcher(tokens, [comma_test], optional=True)
+    if option:
+        result = result + option
+
+    return result
 
 def _compound_stmt(tokens):
     """Parse a compound statement.
