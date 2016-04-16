@@ -5,3 +5,7 @@
 @third_decorator()
 def decorated_func():
     return 5
+    
+@classdecorator
+class decorated_class():
+    pass
