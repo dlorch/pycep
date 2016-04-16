@@ -40,3 +40,6 @@ assert a % 2 == 0, "value was odd, should be even"
 import signal
 with signal.blocked() as a, signal.blocked() as b:
     pass
+    
+m = 5; m += 1; print m
+

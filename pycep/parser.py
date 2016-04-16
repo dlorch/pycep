@@ -336,11 +336,16 @@ def _simple_stmt(tokens):
 
     result.append(_small_stmt(tokens))
 
-    # TODO this is incorrect, needs to be rewritten with matcher
-    while tokens.peek()[0] == token.OP and tokens.peek()[1] == ";":
-        result.append((token.SEMI, ";"))
-        tokens.next()
+    # ';' small_stmt
+    def semicolon_small_stmt(tokens):
+        result = []
+        result.append(tokens.accept(token.OP, ";", result_token=token.SEMI))
         result.append(_small_stmt(tokens))
+        return result
+     
+    option = matcher(tokens, [semicolon_small_stmt], repeat=True, optional=True)
+    if option:
+        result = result + option
         
     if tokens.peek()[0] == token.OP and tokens.peek()[1] == ";":
         result.append((token.SEMI, ";"))
