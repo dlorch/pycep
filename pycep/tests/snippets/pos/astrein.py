@@ -36,3 +36,7 @@ exec "print 5+5" in globals(), locals()
 a = 2
 assert a % 2 == 0
 assert a % 2 == 0, "value was odd, should be even"
+
+import signal
+with signal.blocked() as a, signal.blocked() as b:
+    pass

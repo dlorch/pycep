@@ -931,8 +931,8 @@ def _compound_stmt(tokens):
     result = [symbol.compound_stmt]
   
     try:
-        result.append(matcher(tokens, [_if_stmt, _while_stmt, _try_stmt, _funcdef,
-            _for_stmt, _classdef, _decorated]))
+        result.append(matcher(tokens, [_if_stmt, _while_stmt, _for_stmt, _try_stmt,
+        _with_stmt, _funcdef, _classdef, _decorated]))
     except SyntaxError:
         raise syntax_error("Expecting: if_stmt | while_stmt | for_stmt | "
             "try_stmt | with_stmt | funcdef | classdef | decorated", tokens.peek())
@@ -1123,7 +1123,40 @@ def _with_stmt(tokens):
 
         with_stmt: 'with' with_item (',' with_item)*  ':' suite
     """
-    raise NotImplementedError
+    result = [symbol.with_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "with"):
+        raise syntax_error("Expecting: 'with'", tokens.peek())
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+
+    result.append(_with_item(tokens))
+    
+    # ',' with_item
+    def comma_with_item(tokens):
+        result = []
+
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise SyntaxError
+        result.append((token.COMMA, ","))
+        tokens.next()
+
+        result.append(_with_item(tokens))
+        
+        return result
+    
+    option = matcher(tokens, [comma_with_item], repeat=True, optional=True)
+    if option:
+        result = result + option
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ":"):
+        raise syntax_error("Expecting: ':'", tokens.peek())
+    result.append((token.COLON, ":"))
+    tokens.next()
+
+    result.append(_suite(tokens))
+    
+    return result
 
 def _with_item(tokens):
     """Parse a with item.
@@ -1132,7 +1165,28 @@ def _with_item(tokens):
 
         with_item: test ['as' expr]
     """
-    raise NotImplementedError
+    result = [symbol.with_item]
+
+    result.append(_test(tokens))
+    
+    # 'as' expr
+    def as_expr(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "as"):
+            raise SyntaxError
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+        
+        result.append(_expr(tokens))
+        
+        return result
+
+    option = matcher(tokens, [as_expr], optional=True)
+    if option:
+        result = result + option
+
+    return result
 
 def _except_clause(tokens):
     """Parse an except clause.
