@@ -480,15 +480,47 @@ def _print_stmt(tokens):
         print_stmt: 'print' ( [ test (',' test)* [','] ] |
                               '>>' test [ (',' test)+ [','] ] )
     """
+    # This grammar is *not* left-factored and has to be rewritten as follows
+    # (<=> denotes "if and only if", ε denotes the empty string). Derivation:
+    #
+    #   print_stmt: 'print' ( [ test (',' test)* [','] ] |
+    #                         '>>' test [ (',' test)+ [','] ] )
+    #   <=>
+    #   print_stmt: 'print' ( ε |
+    #                         test (',' test)* [','] |
+    #                         '>>' test [ (',' test)+ [','] ] )
+    #
     result = [symbol.print_stmt]
 
     # test (',' test)* [',']
     def option1(tokens):
         result = []
         result.append(_test(tokens))
-
         result = result + matcher(tokens, [comma_test], repeat=True, optional=True)
         
+        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+            result.append((token.COMMA, ","))
+            tokens.next()
+        
+        return result
+
+    # '>>' test [ (',' test)+ [','] ]
+    def option2(tokens):
+        result = []
+        result.append(tokens.accept(token.OP, ">>", result_token=token.RIGHTSHIFT))
+        result.append(_test(tokens))
+
+        option =  matcher(tokens, [option2test], optional=True)
+        if option:
+            result = result + option
+
+        return result
+    
+    # (',' test)+ [',']
+    def option2test(tokens):
+        result = []
+        result = result + matcher(tokens, [comma_test], repeat=True)
+
         if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
             result.append((token.COMMA, ","))
             tokens.next()
@@ -502,14 +534,12 @@ def _print_stmt(tokens):
         result.append(_test(tokens))
         return result
 
-    if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "print":
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
+    result.append(tokens.accept(token.NAME, "print", error_msg="Expecting: 'print'"))
 
-        result = result + matcher(tokens, [option1]) # TODO
-    else:
-        raise SyntaxError
-
+    optionresult = matcher(tokens, [option1, option2], optional=True)
+    if optionresult:
+        result = result + optionresult
+    
     return result
 
 def _del_stmt(tokens):

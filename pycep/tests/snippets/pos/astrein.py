@@ -43,3 +43,13 @@ with signal.blocked() as a, signal.blocked() as b:
     
 m = 5; m += 1; print m
 
+print
+print "foo"
+print "foo", "bar"
+print "foo", "bar",
+
+import sys
+print >> sys.stderr
+print >> sys.stderr, "error"
+print >> sys.stderr, "error", "another error"
+print >> sys.stderr, "error", "another error",
