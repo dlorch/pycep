@@ -137,7 +137,45 @@ def _decorator(tokens):
 
         decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
     """
-    raise NotImplementedError
+    result = [symbol.decorator]
+    
+    if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "@"):
+        raise SyntaxError("Expecting '@'")
+    result.append((token.AT, "@"))
+    tokens.next()
+    
+    result.append(_dotted_name(tokens))
+        
+    # [ '(' [arglist] ')' ]
+    def arglist(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "("):
+            raise SyntaxError("Expecting '('")
+        result.append((token.LPAR, "("))
+        tokens.next()
+        
+        option = matcher(tokens, [_arglist], optional=True)
+        if option:
+            result.append(option)
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ")"):
+            raise SyntaxError("Expecting ')'")
+        result.append((token.RPAR, ")"))
+        tokens.next()
+        
+        return result
+    
+    option = matcher(tokens, [arglist], optional=True)
+    if option:
+        result = result + option
+    
+    if tokens.peek()[0] != token.NEWLINE:
+        raise SyntaxError
+    result.append((token.NEWLINE, ''))
+    tokens.next()
+    
+    return result
 
 def _decorators(tokens):
     """Parse a list of decorators.
@@ -146,7 +184,11 @@ def _decorators(tokens):
 
         decorators: decorator+
     """
-    raise NotImplementedError
+    result = [symbol.decorators]
+    
+    result = result + matcher(tokens, [[_decorator]], repeat=True)
+    
+    return result
 
 def _decorated(tokens):
     """Parse a decorated statement.
@@ -155,7 +197,13 @@ def _decorated(tokens):
 
         decorated: decorators (classdef | funcdef)
     """
-    raise NotImplementedError
+    result = [symbol.decorated]
+    
+    result.append(_decorators(tokens))
+    
+    result.append(matcher(tokens, [_classdef, _funcdef]))
+    
+    return result
 
 def _funcdef(tokens):
     """Parse a function definition.
@@ -758,7 +806,7 @@ def _compound_stmt(tokens):
   
     try:
         result.append(matcher(tokens, [_if_stmt, _while_stmt, _try_stmt, _funcdef,
-            _for_stmt, _classdef]))
+            _for_stmt, _classdef, _decorated]))
     except SyntaxError:
         raise syntax_error("Expecting: if_stmt | while_stmt | for_stmt | "
             "try_stmt | with_stmt | funcdef | classdef | decorated", tokens.peek())
