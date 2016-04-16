@@ -19,3 +19,12 @@ for num in range(2, 10):
 for x in [1, 2, 3]:
     pass
 del x
+
+glob = 1
+another = 2
+def globalvar():
+    global glob
+    global glob, another
+    glob = 5
+    another = 6
+globalvar()

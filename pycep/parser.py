@@ -397,14 +397,14 @@ def _small_stmt(tokens):
 
     ::
 
-        small_stmt: (expr_stmt | print_stmt  | del_stmt | pass_stmt | flow_stmt |
+        small_stmt: (expr_stmt | print_stmt | del_stmt | pass_stmt | flow_stmt |
                      import_stmt | global_stmt | exec_stmt | assert_stmt)
     """
     result = [symbol.small_stmt]
 
     try:
         result.append(matcher(tokens, [_expr_stmt, _print_stmt, _del_stmt,
-            _pass_stmt, _flow_stmt, _import_stmt])) # TODO
+            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt])) # TODO
     except SyntaxError:
         raise syntax_error("Expecting (expr_stmt | print_stmt  | del_stmt | "
             "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
@@ -799,7 +799,39 @@ def _global_stmt(tokens):
 
         global_stmt: 'global' NAME (',' NAME)*
     """
-    raise NotImplementedError
+    result = [symbol.global_stmt]
+    
+    if not (tokens.peek()[0] == token.NAME and tokens.peek()[1] == "global"):
+        raise syntax_error("Expecting: 'global'", tokens.peek())
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    if not tokens.peek()[0] == token.NAME:
+        raise SyntaxError
+    result.append((tokens.peek()[0], tokens.peek()[1]))
+    tokens.next()
+    
+    # ',' NAME
+    def comma_name(tokens):
+        result = []
+        
+        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == ","):
+            raise SyntaxError
+        result.append((token.COMMA, ","))
+        tokens.next()
+        
+        if not tokens.peek()[0] == token.NAME:
+            raise SyntaxError          
+        result.append((tokens.peek()[0], tokens.peek()[1]))
+        tokens.next()
+        
+        return result
+    
+    comma_name_repeat = matcher(tokens, [comma_name], repeat=True, optional=True)
+    if comma_name_repeat:
+        result = result + comma_name_repeat
+    
+    return result
 
 def _exec_stmt(tokens):
     """Parse an exec statement.
