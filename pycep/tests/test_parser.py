@@ -63,6 +63,11 @@ class TestParser(unittest.TestCase):
         self.assertEquals(parser.suite(source).totuple(),
             pycep.parser.suite(source, totuple=True))
 
+    def test_astrein(self):
+        source = open(path.join(SNIPPETS, "pos", "astrein.py")).read()
+        self.assertEquals(parser.suite(source).totuple(),
+            pycep.parser.suite(source, totuple=True))
+
     def test_variable_scope(self):
         source = open(path.join(SNIPPETS, "pos", "variable_scope.py")).read()
         self.assertEquals(parser.suite(source).totuple(),

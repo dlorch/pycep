@@ -5,9 +5,9 @@
 			"name": "Debug PyCep",
 			"type": "python",
 			"request": "launch",
-			"stopOnEntry": true,
+			"stopOnEntry": false,
 			"program": "${workspaceRoot}/pycep/cli.py",
-			"args": ["${workspaceRoot}/pycep/tests/programs/fib.py"],
+			"args": ["${workspaceRoot}/pycep/tests/snippets/pos/astrein.py"],
 			"debugOptions": [
 				"WaitOnAbnormalExit",
 				"WaitOnNormalExit",
