@@ -489,6 +489,9 @@ def _print_stmt(tokens):
     #   print_stmt: 'print' ( ε |
     #                         test (',' test)* [','] |
     #                         '>>' test [ (',' test)+ [','] ] )
+    #   <=>
+    #   print_stmt: 'print' [ test (',' test)* [','] |
+    #                         '>>' test [ (',' test)+ [','] ] ]
     #
     result = [symbol.print_stmt]
 
