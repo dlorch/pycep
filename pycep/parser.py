@@ -583,7 +583,7 @@ def _flow_stmt(tokens):
     
     try:
         result.append(matcher(tokens, [_break_stmt, _continue_stmt, _return_stmt,
-            _yield_stmt]))
+           _raise_stmt, _yield_stmt]))
     except SyntaxError:
         raise syntax_error("Expecting: break_stmt | continue_stmt | return_stmt | " \
             "raise_stmt | yield_stmt", tokens.peek())
@@ -653,7 +653,44 @@ def _raise_stmt(tokens):
 
         raise_stmt: 'raise' [test [',' test [',' test]]]
     """
-    raise NotImplementedError
+    result = [symbol.raise_stmt]
+    
+    result.append(tokens.accept(token.NAME, "raise"))
+    
+    # test [',' test [',' test]]
+    def option1(tokens):
+        result = []
+        result.append(_test(tokens))
+        
+        option = matcher(tokens, [comma_test_comma_test], optional=True)
+        if option:
+            result = result + option
+        
+        return result
+    
+    # ',' test [',' test]
+    def comma_test_comma_test(tokens):
+        result = []
+        result = result + comma_test(tokens)
+        
+        option = matcher(tokens, [comma_test], optional=True)
+        if option:
+            result = result + option
+        
+        return result
+    
+    # ',' test
+    def comma_test(tokens):
+        result = []
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+        result.append(_test(tokens))
+        return result
+    
+    option = matcher(tokens, [option1], optional=True)
+    if option:
+        result = result + option
+    
+    return result
 
 def _import_stmt(tokens):
     """Parse an import statement.
@@ -973,13 +1010,49 @@ def _try_stmt(tokens):
     result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
     result.append(_suite(tokens))
     
-    # TODO repeat
-    result.append(_except_clause(tokens))
-    
-    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
-    result.append(_suite(tokens))
+    # except_clause ':' suite
+    def except_clause_colon_suite(tokens):
+        result = []
+        result.append(_except_clause(tokens))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+        result.append(_suite(tokens))
+        return result
 
-    # TODO else/finally
+    # 'else' ':' suite
+    def else_colon_suite(tokens):
+        result = []
+        result.append(tokens.accept(token.NAME, "else", error_msg="Expecting: 'else'"))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+        result.append(_suite(tokens))
+        return result
+        
+    # 'finally' ':' suite
+    def finally_colon_suite(tokens):
+        result = []
+        result.append(tokens.accept(token.NAME, "finally", error_msg="Expecting: 'finally'"))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+        result.append(_suite(tokens))
+        return result
+        
+    # (except_clause ':' suite)+
+    # ['else' ':' suite]
+    # ['finally' ':' suite]
+    def option1(tokens):
+        result = []
+        
+        result = result + matcher(tokens, [except_clause_colon_suite], repeat=True)
+        
+        option = matcher(tokens, [else_colon_suite], repeat=True, optional=True)
+        if option:
+            result = result + option
+        
+        option = matcher(tokens, [finally_colon_suite], repeat=True, optional=True)
+        if option:
+            result = result + option
+
+        return result
+    
+    result = result + matcher(tokens, [option1, finally_colon_suite])
     
     return result
 
@@ -1050,8 +1123,38 @@ def _except_clause(tokens):
 
     result.append(tokens.accept(token.NAME, "except", error_msg="Expecting: 'except'"))
     
-    # TODO
-    result.append(_test(tokens))
+    # ('as' | ',') test
+    def as_or_comma_test(tokens):
+        result = []
+        
+        if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "as":
+            result.append((tokens.peek()[0], tokens.peek()[1]))
+            tokens.next()
+        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
+            result.append((tokens.peek()[0], tokens.peek()[1]))
+            tokens.next()
+        else:
+            raise SyntaxError
+        
+        result.append(_test(tokens))
+        
+        return result
+    
+    # test [('as' | ',') test]
+    def option1(tokens):
+        result = []
+        
+        result.append(_test(tokens))
+        
+        option = matcher(tokens, [as_or_comma_test], optional=True)
+        if option:
+            result = result + option
+            
+        return result
+    
+    option = matcher(tokens, [option1], optional=True)
+    if option:
+        result = result + option
 
     return result
     
@@ -1604,7 +1707,8 @@ def _subscript(tokens):
     # TODO
     result.append(_test(tokens))
     
-    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ":":
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
 
     return result
 

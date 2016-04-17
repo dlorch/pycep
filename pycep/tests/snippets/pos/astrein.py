@@ -53,3 +53,33 @@ print >> sys.stderr
 print >> sys.stderr, "error"
 print >> sys.stderr, "error", "another error"
 print >> sys.stderr, "error", "another error",
+
+try:
+    f = open('doesnotexist.txt')
+    s = f.readline()
+    i = int(s.strip())
+except IOError as e:
+    print "I/O error({0}): {1}".format(e.errno, e.strerror)
+except ValueError:
+    print "Could not convert data to an integer."
+except:
+    print "Unexpected error:", sys.exc_info()[0]
+    raise
+    raise Exception("spam")    
+    raise Exception, "spam"
+    raise Exception, "spam", sys.exc_info()[2]
+    
+def divide(x, y):
+    try:
+        result = x / y
+    except ZeroDivisionError:
+        print "division by zero!"
+    else:
+        print "result is", result
+    finally:
+        print "executing finally clause"
+        
+try:
+    print "Hello"
+finally:
+    print "World"
