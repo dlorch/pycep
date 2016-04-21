@@ -1271,7 +1271,15 @@ def _and_test(tokens):
     result = [symbol.and_test]
     result.append(_not_test(tokens))
     
-    # TODO and not_test
+    def and_not_test(tokens):
+        result = []
+        result.append(tokens.accept(token.NAME, "and"))
+        result.append(_not_test(tokens))
+        return result
+
+    repeat = matcher(tokens, [and_not_test], repeat=True, optional=True)
+    if repeat:
+        result = result + repeat
     
     return result
 

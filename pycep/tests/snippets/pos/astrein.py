@@ -86,3 +86,6 @@ finally:
     
 True or False
 5 == 2 or 2 == 2 or False
+
+True and False
+12 == 2 and 4 == 4 and True
