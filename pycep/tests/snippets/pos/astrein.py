@@ -83,3 +83,6 @@ try:
     print "Hello"
 finally:
     print "World"
+    
+True or False
+5 == 2 or 2 == 2 or False

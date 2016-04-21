@@ -1249,7 +1249,15 @@ def _or_test(tokens):
     result = [symbol.or_test]
     result.append(_and_test(tokens))
 
-    # TODO or and_test
+    def or_and_test(tokens):
+        result = []
+        result.append(tokens.accept(token.NAME, "or"))
+        result.append(_and_test(tokens))
+        return result
+
+    repeat = matcher(tokens, [or_and_test], repeat=True, optional=True)
+    if repeat:
+        result = result + repeat
     
     return result
 
@@ -1594,6 +1602,7 @@ def _listmaker(tokens):
         return result
     
     result = result + matcher(tokens, [[_list_for], comma_test_repeat_comma])
+    
     return result
 
 def _testlist_comp(tokens):
