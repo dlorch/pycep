@@ -1456,7 +1456,17 @@ def _lambdef(tokens):
 
         lambdef: 'lambda' [varargslist] ':' test
     """
-    raise NotImplementedError
+    result = [symbol.lambdef]
+
+    result.append(tokens.accept(token.NAME, "lambda"))
+
+    if not tokens.check(token.OP, ":"):
+        result.append(_varargslist(tokens))
+
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+    result.append(_test(tokens))
+
+    return result
 
 def _trailer(tokens):
     """Parse a trailer.
