@@ -1330,7 +1330,9 @@ def _power(tokens):
     while tokens.check(token.OP, "(") or tokens.check(token.OP, "[") or tokens.check(token.OP, "."):
         result.append(_trailer(tokens))
 
-    # TODO ['**' factor]
+    if tokens.check(token.OP, "**"):
+        result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+        result.append(_factor(tokens))
 
     return result
 
