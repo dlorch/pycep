@@ -344,19 +344,7 @@ def _small_stmt(tokens):
     """
     result = [symbol.small_stmt]
 
-    # pylint: disable=R0916
-    if tokens.check(token.NAME, "not") or \
-        tokens.check(token.OP, ("+", "-", "~", "(", "[", "{", "`")) or \
-        tokens.check(token.NUMBER) or \
-        tokens.check(token.STRING) or \
-        (tokens.check(token.NAME) and \
-            (tokens.check(token.OP, ("=", "(", ".", ",", "+=", "-=", "*=", "/=", "%=", "&m", \
-                                     "|=", "^=", "<<=", ">>=", "**=", "//="), lookahead=2) or \
-             tokens.check(token.NAME, ("or", "and"), lookahead=2)
-            )
-        ):
-        result.append(_expr_stmt(tokens))
-    elif tokens.check(token.NAME, "print"):
+    if tokens.check(token.NAME, "print"):
         result.append(_print_stmt(tokens))
     elif tokens.check(token.NAME, "del"):
         result.append(_del_stmt(tokens))
@@ -374,10 +362,13 @@ def _small_stmt(tokens):
         result.append(_exec_stmt(tokens))
     elif tokens.check(token.NAME, "assert"):
         result.append(_assert_stmt(tokens))
+    elif tokens.check(token.NUMBER) or tokens.check(token.STRING) or \
+        tokens.check(token.NAME): # make sure the "catchall" tokens.check(token.NAME) belongs to the last condition
+        result.append(_expr_stmt(tokens))
     else:
         tokens.error("Expecting (expr_stmt | print_stmt  | del_stmt | "
                      "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
-                     "assert_stmt")
+                     "assert_stmt)")
 
     return result
 
@@ -1197,7 +1188,9 @@ def _expr(tokens):
     result = [symbol.expr]
     result.append(_xor_expr(tokens))
 
-    # TODO | xor_expr
+    #while tokens.check(token.OP, "|"):
+    #    result.append(tokens.accept(token.OP, "|"))
+    #    result.append(_xor_expr(tokens))
 
     return result
 

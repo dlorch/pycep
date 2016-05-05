@@ -5,17 +5,17 @@
 @third_decorator()
 def decorated_func():
     return 5
-    
+
 @classdecorator
 class decorated_class():
     pass
-    
+
 for num in range(2, 10):
     if num % 2 == 0:
         print "Found an even number", num
         continue
     print "Found a number", num
-    
+
 for x in [1, 2, 3]:
     pass
 del x
@@ -40,7 +40,7 @@ assert a % 2 == 0, "value was odd, should be even"
 import signal
 with signal.blocked() as a, signal.blocked() as b:
     pass
-    
+
 m = 5; m += 1; print m
 
 print
@@ -65,7 +65,7 @@ except ValueError:
 except:
     print "Unexpected error:", sys.exc_info()[0]
     raise
-    raise Exception("spam")    
+    raise Exception("spam")
     raise Exception, "spam"
     raise Exception, "spam", sys.exc_info()[2]
     
@@ -78,14 +78,17 @@ def divide(x, y):
         print "result is", result
     finally:
         print "executing finally clause"
-        
+
 try:
     print "Hello"
 finally:
     print "World"
-    
+
 True or False
 5 == 2 or 2 == 2 or False
 
 True and False
 12 == 2 and 4 == 4 and True
+
+foo = 5
+foo
