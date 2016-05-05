@@ -106,3 +106,7 @@ foo << 5 >> 42
 ~foo
 
 4 ** 16
+
+#g = lambda x: x**2
+
+5 if foo == 30 else 19

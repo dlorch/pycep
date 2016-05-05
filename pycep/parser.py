@@ -1070,9 +1070,17 @@ def _test(tokens):
         test: or_test ['if' or_test 'else' test] | lambdef
     """
     result = [symbol.test]
-    result.append(_or_test(tokens))
 
-    # TODO if/lambdef
+    if tokens.check(token.NAME, "lambda"):
+        result.append(_lambdef(tokens))
+    else:
+        result.append(_or_test(tokens))
+
+        if tokens.check(token.NAME, "if"):
+            result.append(tokens.accept(token.NAME, "if"))
+            result.append(_or_test(tokens))
+            result.append(tokens.accept(token.NAME, "else"))
+            result.append(_test(tokens))
 
     return result
 
