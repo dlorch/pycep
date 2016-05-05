@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
+# pylint: disable=C0302
 
 from __future__ import absolute_import
-import pycep.tokenizer
 import parser
 import token
 import tokenize
 import symbol
 from StringIO import StringIO
+import pycep.tokenizer
 
 def suite(source, totuple=False):
     """The parser takes a string containing the source code as an input and
@@ -15,7 +16,8 @@ def suite(source, totuple=False):
     >>> import pycep.parser
     >>> st = pycep.parser.suite('print "Hello, world!"')
     >>> st.totuple()
-    (257, (267, (268, (269, (272, (1, 'print'), (304, (305, (306, (307, (308, (310, (311, (312, (313, (314, (315, (316, (317, (318, (3, '"Hello, world!"'))))))))))))))))), (4, ''))), (4, ''), (0, ''))
+    (257, (267, (268, (269, (272, (1, 'print'), (304, (305, (306, (307, (308, (310, (311, (312, (313, (314, (315, \
+    (316, (317, (318, (3, '"Hello, world!"'))))))))))))))))), (4, ''))), (4, ''), (0, ''))
 
     Formally, this is an LL(2) (Left-to-right, Leftmost derivation with two-token lookahead), recursive-descent parser.
 
@@ -76,8 +78,11 @@ def suite(source, totuple=False):
 
     if totuple:
         # recursively convert list-of-lists to tuples-of-tuples
-        def listit(t):
-            return tuple(map(listit, t)) if isinstance(t, (list, tuple)) else t
+        def listit(tup):
+            if isinstance(tup, (list, tuple)):
+                return tuple([listit(el) for el in tup])
+            else:
+                return tup
 
         return listit(result)
     else:
@@ -112,7 +117,7 @@ def _file_input(tokens):
 
     # No trailing NEWLINE defined in grammar, but Python's parser always
     # appends it, thus imitate this behavior
-    result.append((token.NEWLINE, ''))
+    result.append((token.NEWLINE, ""))
 
     result.append(tokens.accept(token.ENDMARKER, result_name=""))
 
@@ -293,10 +298,9 @@ def _stmt(tokens):
     """
     result = [symbol.stmt]
 
-    if tokens.check(token.NAME, "if") or tokens.check(token.NAME, "while") or \
-        tokens.check(token.NAME, "for") or tokens.check(token.NAME, "try") or \
-        tokens.check(token.NAME, "with") or tokens.check(token.NAME, "def") or \
-        tokens.check(token.NAME, "class") or tokens.check(token.OP, "@"):
+    if tokens.check(token.NAME, ("if", "while", "for", "try", "with", "def", "class")) or \
+        tokens.check(token.OP, "@"):
+
         result.append(_compound_stmt(tokens))
     else:
         result.append(_simple_stmt(tokens))
@@ -340,30 +344,17 @@ def _small_stmt(tokens):
     """
     result = [symbol.small_stmt]
 
-    if tokens.check(token.NAME, "not") or tokens.check(token.OP, "+") or \
-        tokens.check(token.OP, "-") or tokens.check(token.OP, "~") or \
-        tokens.check(token.OP, "(") or tokens.check(token.OP, "[") or \
-        tokens.check(token.OP, "{") or tokens.check(token.OP, "`") or \
-        tokens.check(token.NUMBER) or tokens.check(token.STRING) or \
+    # pylint: disable=R0916
+    if tokens.check(token.NAME, "not") or \
+        tokens.check(token.OP, ("+", "-", "~", "(", "[", "{", "`")) or \
+        tokens.check(token.NUMBER) or \
+        tokens.check(token.STRING) or \
         (tokens.check(token.NAME) and \
-            (tokens.check(token.OP, "=", lookahead=2) or \
-            tokens.check(token.OP, "(", lookahead=2) or \
-            tokens.check(token.OP, ".", lookahead=2) or \
-            tokens.check(token.OP, ",", lookahead=2) or \
-            tokens.check(token.OP, "+=", lookahead=2) or \
-            tokens.check(token.OP, "-=", lookahead=2) or \
-            tokens.check(token.OP, "*=", lookahead=2) or \
-            tokens.check(token.OP, "/=", lookahead=2) or \
-            tokens.check(token.OP, "%=", lookahead=2) or \
-            tokens.check(token.OP, "&=", lookahead=2) or \
-            tokens.check(token.OP, "|=", lookahead=2) or \
-            tokens.check(token.OP, "^=", lookahead=2) or \
-            tokens.check(token.OP, "<<=", lookahead=2) or \
-            tokens.check(token.OP, ">>=", lookahead=2) or \
-            tokens.check(token.OP, "**=", lookahead=2) or \
-            tokens.check(token.OP, "//=", lookahead=2) or \
-            tokens.check(token.NAME, "or", lookahead=2) or \
-            tokens.check(token.NAME, "and", lookahead=2))):
+            (tokens.check(token.OP, ("=", "(", ".", ",", "+=", "-=", "*=", "/=", "%=", "&m", \
+                                     "|=", "^=", "<<=", ">>=", "**=", "//="), lookahead=2) or \
+             tokens.check(token.NAME, ("or", "and"), lookahead=2)
+            )
+        ):
         result.append(_expr_stmt(tokens))
     elif tokens.check(token.NAME, "print"):
         result.append(_print_stmt(tokens))
@@ -402,12 +393,8 @@ def _expr_stmt(tokens):
 
     result.append(_testlist(tokens))
 
-    if tokens.check(token.OP, "+=") or tokens.check(token.OP, "-=") or \
-        tokens.check(token.OP, "*=") or tokens.check(token.OP, "/=") or \
-        tokens.check(token.OP, "%=") or tokens.check(token.OP, "&=") or \
-        tokens.check(token.OP, "|=") or tokens.check(token.OP, "^=") or \
-        tokens.check(token.OP, "<<=") or tokens.check(token.OP, ">>=") or \
-        tokens.check(token.OP, "**=") or tokens.check(token.OP, "//="):
+    if tokens.check(token.OP, ("+=", "-=", "*=", "/=", "%=", "&=", "|=", \
+                               "^=", "<<=", ">>=", "**=", "//=")):
 
         result.append(_augassign(tokens))
 
@@ -427,6 +414,7 @@ def _expr_stmt(tokens):
 
     return result
 
+# pylint: disable=R0912
 def _augassign(tokens):
     """Parse an augmented assign statement.
 
