@@ -92,3 +92,5 @@ True and False
 
 foo = 5
 foo
+
+foo | 12 | 4

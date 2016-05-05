@@ -1188,9 +1188,9 @@ def _expr(tokens):
     result = [symbol.expr]
     result.append(_xor_expr(tokens))
 
-    #while tokens.check(token.OP, "|"):
-    #    result.append(tokens.accept(token.OP, "|"))
-    #    result.append(_xor_expr(tokens))
+    while tokens.check(token.OP, "|"):
+        result.append(tokens.accept(token.OP, "|", result_token=token.VBAR))
+        result.append(_xor_expr(tokens))
 
     return result
 
