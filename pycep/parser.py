@@ -362,7 +362,8 @@ def _small_stmt(tokens):
         result.append(_exec_stmt(tokens))
     elif tokens.check(token.NAME, "assert"):
         result.append(_assert_stmt(tokens))
-    elif tokens.check(token.NUMBER) or tokens.check(token.STRING) or \
+    elif tokens.check(token.OP, ("+", "-", "~")) or \
+        tokens.check(token.NUMBER) or tokens.check(token.STRING) or \
         tokens.check(token.NAME): # make sure the "catchall" tokens.check(token.NAME) belongs to the last condition
         result.append(_expr_stmt(tokens))
     else:
@@ -1301,9 +1302,18 @@ def _factor(tokens):
     """
     result = [symbol.factor]
 
-    # TODO
+    if tokens.check(token.OP, "+") or tokens.check(token.OP, "-") or tokens.check(token.OP, "~"):
+        if tokens.check(token.OP, "+"):
+            result.append(tokens.accept(token.OP, "+", result_token=token.PLUS))
+        elif tokens.check(token.OP, "-"):
+            result.append(tokens.accept(token.OP, "-", result_token=token.MINUS))
+        elif tokens.check(token.OP, "~"):
+            result.append(tokens.accept(token.OP, "~", result_token=token.TILDE))
 
-    result.append(_power(tokens))
+        result.append(_factor(tokens))
+    else:
+        result.append(_power(tokens))
+
     return result
 
 def _power(tokens):
