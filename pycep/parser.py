@@ -17,10 +17,12 @@ def suite(source, totuple=False):
     >>> st.totuple()
     (257, (267, (268, (269, (272, (1, 'print'), (304, (305, (306, (307, (308, (310, (311, (312, (313, (314, (315, (316, (317, (318, (3, '"Hello, world!"'))))))))))))))))), (4, ''))), (4, ''), (0, ''))
 
+    Formally, this is an LL(2) (Left-to-right, Leftmost derivation with two-token lookahead), recursive-descent parser.
+
     Args:
         source (string): Source code
         totuple (boolean): (for testing) Return internal parser data structure, don't convert to ``parser.st`` object
-        
+
     Returns:
         parser.st: Parse Tree
 
@@ -65,6 +67,8 @@ def suite(source, totuple=False):
         * Python Language Reference: https://docs.python.org/2/reference/grammar.html
         * Non-Terminal Symbols: https://hg.python.org/cpython/file/2.7/Lib/symbol.py
         * Leaf Nodes: https://docs.python.org/2/library/token.html
+        * LL Parser: https://en.wikipedia.org/wiki/LL_parser
+        * Recursive-Descent Parser: https://en.wikipedia.org/wiki/Recursive_descent_parser
     """
 
     tokens = TokenIterator(pycep.tokenizer.generate_tokens(StringIO(source).readline))
@@ -79,9 +83,6 @@ def suite(source, totuple=False):
     else:
         return parser.sequence2st(result)
 
-def syntax_error(reason, token, filename="<string>"):
-    return SyntaxError(reason, (filename, token[2][0], token[2][1], token[4]))
-
 def _single_input(tokens):
     """Parse a single input.
 
@@ -95,29 +96,25 @@ def _file_input(tokens):
     """Parse a module or sequence of command read from an input file.
 
     ::
-    
+
         file_input: (NEWLINE | stmt)* ENDMARKER
     """
     result = [symbol.file_input]
-    
+
     try:
-        while not tokens.peek()[0] == token.ENDMARKER:
-            if tokens.peek()[0] == token.NEWLINE:
-                result.append((tokens.peek()[0], ''))
-                tokens.next()
+        while not tokens.check(token.ENDMARKER):
+            if tokens.check(token.NEWLINE):
+                result.append(tokens.accept(token.NEWLINE, result_name=""))
             else:
                 result.append(_stmt(tokens))
     except StopIteration:
         pass # raise "Expecting ENDMARKER" in next block
 
     # No trailing NEWLINE defined in grammar, but Python's parser always
-    # appends it, thus imitate this behavior 
+    # appends it, thus imitate this behavior
     result.append((token.NEWLINE, ''))
 
-    if tokens.next()[0] != token.ENDMARKER:
-        raise syntax_error("Expecting ENDMARKER", tokens.peek())
-
-    result.append((token.ENDMARKER, ''))
+    result.append(tokens.accept(token.ENDMARKER, result_name=""))
 
     return result
 
@@ -138,30 +135,20 @@ def _decorator(tokens):
         decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
     """
     result = [symbol.decorator]
-    
-    result.append(tokens.accept(token.OP, "@", result_token=token.AT, error_msg="Expecting '@'"))
+
+    result.append(tokens.accept(token.OP, "@", result_token=token.AT))
     result.append(_dotted_name(tokens))
-        
-    # [ '(' [arglist] ')' ]
-    def arglist(tokens):
-        result = []
-        
-        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR, error_msg="Expecting '('"))
-        
-        option = matcher(tokens, [_arglist], optional=True)
-        if option:
-            result.append(option)
-        
-        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting ')'"))
-        
-        return result
-    
-    option = matcher(tokens, [arglist], optional=True)
-    if option:
-        result = result + option
-    
+
+    if tokens.check(token.OP, "("):
+        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
+
+        if not tokens.check(token.OP, ")"):
+            result.append(_arglist(tokens))
+
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
+
     result.append(tokens.accept(token.NEWLINE, result_name=""))
-    
+
     return result
 
 def _decorators(tokens):
@@ -172,9 +159,12 @@ def _decorators(tokens):
         decorators: decorator+
     """
     result = [symbol.decorators]
-    
-    result = result + matcher(tokens, [[_decorator]], repeat=True)
-    
+
+    result.append(_decorator(tokens))
+
+    while tokens.check(token.OP, "@"):
+        result.append(_decorator(tokens))
+
     return result
 
 def _decorated(tokens):
@@ -185,10 +175,16 @@ def _decorated(tokens):
         decorated: decorators (classdef | funcdef)
     """
     result = [symbol.decorated]
-    
+
     result.append(_decorators(tokens))
-    result.append(matcher(tokens, [_classdef, _funcdef]))
-    
+
+    if tokens.check(token.NAME, "class"):
+        result.append(_classdef(tokens))
+    elif tokens.check(token.NAME, "def"):
+        result.append(_funcdef(tokens))
+    else:
+        tokens.error("Expecting (classdef | funcdef)")
+
     return result
 
 def _funcdef(tokens):
@@ -200,12 +196,12 @@ def _funcdef(tokens):
     """
     result = [symbol.funcdef]
 
-    result.append(tokens.accept(token.NAME, "def", error_msg="Expecting 'def'"))
-    result.append(tokens.accept(token.NAME, error_msg="Expecting function name"))
+    result.append(tokens.accept(token.NAME, "def"))
+    result.append(tokens.accept(token.NAME))
     result.append(_parameters(tokens))
-    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting ':'"))
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
-    
+
     return result
 
 def _parameters(tokens):
@@ -217,13 +213,12 @@ def _parameters(tokens):
     """
     result = [symbol.parameters]
 
-    result.append(tokens.accept(token.OP, "(", result_token=token.LPAR, error_msg="Expecting '('"))
+    result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
 
-    varargslist = matcher(tokens, [_varargslist], optional=True)
-    if varargslist:
-        result.append(varargslist)
+    if not tokens.check(token.OP, ")"):
+        result.append(_varargslist(tokens))
 
-    result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting ')'"))
+    result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
 
     return result
 
@@ -237,44 +232,26 @@ def _varargslist(tokens):
                       fpdef ['=' test] (',' fpdef ['=' test])* [','])
     """
     result = [symbol.varargslist]
-    
+
     # TODO this grammar is not left-factored and needs to be rewritten
-    
-    # fpdef ['=' test]
-    def option2a(tokens):
-        result = []
+    # TODO the implementation below is incomplete
+
+    result.append(_fpdef(tokens))
+
+    if tokens.check(token.OP, "="):
+        result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
+        result.append(_test(tokens))
+
+    while tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_fpdef(tokens))
 
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == "=":
-            result.append((token.EQUAL, "="))
-            tokens.next()
+        if tokens.check(token.OP, "="):
+            result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
             result.append(_test(tokens))
 
-        return result
-
-    # ',' fpdef ['=' test]
-    def option2b(tokens):
-        result = []
-        
+    if tokens.check(token.OP, ","):
         result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-        result = result + option2a(tokens)
-        
-        return result
-
-    # fpdef ['=' test] (',' fpdef ['=' test])* [',']
-    def option2(tokens):
-        result = []
-        result = result + option2a(tokens)
-        result = result + matcher(tokens, [option2b], repeat=True, optional=True)
-
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-            result.append((token.OP, ","))
-            tokens.next()
-
-        return result
-
-    # TODO option1
-    result = result + option2(tokens)
 
     return result
 
@@ -287,16 +264,14 @@ def _fpdef(tokens):
     """
     result = [symbol.fpdef]
 
-    if tokens.peek()[0] == token.NAME:
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
-        result.append((token.OP, "("))
-        tokens.next()
+    if tokens.check(token.NAME):
+        result.append(tokens.accept(token.NAME))
+    elif tokens.check(token.OP, "("):
+        result.append(tokens.accept(token.OP, "("))
         result.append(_fplist(tokens))
         result.append(tokens.accept(token.OP, ")"))
     else:
-        raise SyntaxError
+        tokens.error("Expecting NAME | '(' fplist ')'")
 
     return result
 
@@ -318,10 +293,13 @@ def _stmt(tokens):
     """
     result = [symbol.stmt]
 
-    try:
-        result.append(matcher(tokens, [_simple_stmt, _compound_stmt]))
-    except SyntaxError:
-        raise syntax_error("Expecting simple_stmt | compound_stmt", tokens.peek())
+    if tokens.check(token.NAME, "if") or tokens.check(token.NAME, "while") or \
+        tokens.check(token.NAME, "for") or tokens.check(token.NAME, "try") or \
+        tokens.check(token.NAME, "with") or tokens.check(token.NAME, "def") or \
+        tokens.check(token.NAME, "class") or tokens.check(token.OP, "@"):
+        result.append(_compound_stmt(tokens))
+    else:
+        result.append(_simple_stmt(tokens))
 
     return result
 
@@ -336,27 +314,19 @@ def _simple_stmt(tokens):
 
     result.append(_small_stmt(tokens))
 
-    # ';' small_stmt
-    def semicolon_small_stmt(tokens):
-        result = []
+    while tokens.check(token.OP, ";"):
         result.append(tokens.accept(token.OP, ";", result_token=token.SEMI))
         result.append(_small_stmt(tokens))
-        return result
-     
-    option = matcher(tokens, [semicolon_small_stmt], repeat=True, optional=True)
-    if option:
-        result = result + option
-        
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ";":
-        result.append((token.SEMI, ";"))
-        tokens.next()
+
+    if tokens.check(token.OP, ";"):
+        result.append(tokens.accept(token.OP, ";", result_token=token.SEMI))
 
     # trailing NEWLINE is mandatory according to grammar, but in Python's parser
     # it is optional, thus imitate this behavior
-    if tokens.peek()[0] == token.NEWLINE:
-        tokens.next()
-    
-    result.append((token.NEWLINE, ''))
+    if tokens.check(token.NEWLINE):
+        result.append(tokens.accept(token.NEWLINE, result_name=""))
+    else:
+        result.append((token.NEWLINE, ""))
 
     return result
 
@@ -370,15 +340,54 @@ def _small_stmt(tokens):
     """
     result = [symbol.small_stmt]
 
-    try:
-        result.append(matcher(tokens, [_expr_stmt, _print_stmt, _del_stmt,
-            _pass_stmt, _flow_stmt, _import_stmt, _global_stmt, _exec_stmt,
-            _assert_stmt]))
-    except SyntaxError:
-        raise syntax_error("Expecting (expr_stmt | print_stmt  | del_stmt | "
-            "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
-            "assert_stmt", tokens.peek())
-            
+    if tokens.check(token.NAME, "not") or tokens.check(token.OP, "+") or \
+        tokens.check(token.OP, "-") or tokens.check(token.OP, "~") or \
+        tokens.check(token.OP, "(") or tokens.check(token.OP, "[") or \
+        tokens.check(token.OP, "{") or tokens.check(token.OP, "`") or \
+        tokens.check(token.NUMBER) or tokens.check(token.STRING) or \
+        (tokens.check(token.NAME) and \
+            (tokens.check(token.OP, "=", lookahead=2) or \
+            tokens.check(token.OP, "(", lookahead=2) or \
+            tokens.check(token.OP, ".", lookahead=2) or \
+            tokens.check(token.OP, ",", lookahead=2) or \
+            tokens.check(token.OP, "+=", lookahead=2) or \
+            tokens.check(token.OP, "-=", lookahead=2) or \
+            tokens.check(token.OP, "*=", lookahead=2) or \
+            tokens.check(token.OP, "/=", lookahead=2) or \
+            tokens.check(token.OP, "%=", lookahead=2) or \
+            tokens.check(token.OP, "&=", lookahead=2) or \
+            tokens.check(token.OP, "|=", lookahead=2) or \
+            tokens.check(token.OP, "^=", lookahead=2) or \
+            tokens.check(token.OP, "<<=", lookahead=2) or \
+            tokens.check(token.OP, ">>=", lookahead=2) or \
+            tokens.check(token.OP, "**=", lookahead=2) or \
+            tokens.check(token.OP, "//=", lookahead=2) or \
+            tokens.check(token.NAME, "or", lookahead=2) or \
+            tokens.check(token.NAME, "and", lookahead=2))):
+        result.append(_expr_stmt(tokens))
+    elif tokens.check(token.NAME, "print"):
+        result.append(_print_stmt(tokens))
+    elif tokens.check(token.NAME, "del"):
+        result.append(_del_stmt(tokens))
+    elif tokens.check(token.NAME, "pass"):
+        result.append(_pass_stmt(tokens))
+    elif tokens.check(token.NAME, "break") or tokens.check(token.NAME, "continue") or \
+        tokens.check(token.NAME, "return") or tokens.check(token.NAME, "raise") or \
+        tokens.check(token.NAME, "yield"):
+        result.append(_flow_stmt(tokens))
+    elif tokens.check(token.NAME, "import"):
+        result.append(_import_stmt(tokens))
+    elif tokens.check(token.NAME, "global"):
+        result.append(_global_stmt(tokens))
+    elif tokens.check(token.NAME, "exec"):
+        result.append(_exec_stmt(tokens))
+    elif tokens.check(token.NAME, "assert"):
+        result.append(_assert_stmt(tokens))
+    else:
+        tokens.error("Expecting (expr_stmt | print_stmt  | del_stmt | "
+                     "pass_stmt | flow_stmt | import_stmt | global_stmt | exec_stmt | "
+                     "assert_stmt")
+
     return result
 
 def _expr_stmt(tokens):
@@ -390,31 +399,31 @@ def _expr_stmt(tokens):
                              ('=' (yield_expr|testlist))*)
     """
     result = [symbol.expr_stmt]
-    
+
     result.append(_testlist(tokens))
 
-    def yield_expr_or_testlist(tokens):
-        return matcher(tokens, [_yield_expr, _testlist])
+    if tokens.check(token.OP, "+=") or tokens.check(token.OP, "-=") or \
+        tokens.check(token.OP, "*=") or tokens.check(token.OP, "/=") or \
+        tokens.check(token.OP, "%=") or tokens.check(token.OP, "&=") or \
+        tokens.check(token.OP, "|=") or tokens.check(token.OP, "^=") or \
+        tokens.check(token.OP, "<<=") or tokens.check(token.OP, ">>=") or \
+        tokens.check(token.OP, "**=") or tokens.check(token.OP, "//="):
 
-    def option1(tokens):
-        result = []
         result.append(_augassign(tokens))
-        result.append(yield_expr_or_testlist(tokens))
-        return result
-        
-    def option2(tokens):
-        result = []
-        result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
-        result.append(yield_expr_or_testlist(tokens))
-        return result
 
-    def option2repeat(tokens):
-        return matcher(tokens, [option2], repeat=True)
+        if tokens.check(token.NAME, "yield"):
+            result.append(_yield_expr(tokens))
+        else:
+            result.append(_testlist(tokens))
 
-    match = matcher(tokens, [option1, option2repeat], optional=True)
-    
-    if match:
-        result = result + match
+    else:
+        while tokens.check(token.OP, "="):
+            result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
+
+            if tokens.check(token.NAME, "yield"):
+                result.append(_yield_expr(tokens))
+            else:
+                result.append(_testlist(tokens))
 
     return result
 
@@ -428,47 +437,32 @@ def _augassign(tokens):
     """
     result = [symbol.augassign]
 
-    if tokens.peek()[0] == token.OP:
-        if tokens.peek()[1] == "+=":
-            result.append((token.PLUSEQUAL, "+="))
-            tokens.next()
-        elif tokens.peek()[1] == "-=":
-            result.append((token.MINEQUAL, "-="))
-            tokens.next()
-        elif tokens.peek()[1] == "*=":
-            result.append((token.STAREQUAL, "*="))
-            tokens.next()
-        elif tokens.peek()[1] == "/=":
-            result.append((token.SLASHEQUAL, "/="))
-            tokens.next()
-        elif tokens.peek()[1] == "%=":
-            result.append((token.PERCENTEQUAL, "%="))
-            tokens.next()
-        elif tokens.peek()[1] == "&=":
-            result.append((token.AMPEREQUAL, "&="))
-            tokens.next()
-        elif tokens.peek()[1] == "|=":
-            result.append((token.VBAREQUAL, "|="))
-            tokens.next()
-        elif tokens.peek()[1] == "^=":
-            result.append((token.CIRCUMFLEXEQUAL, "^="))
-            tokens.next()
-        elif tokens.peek()[1] == "<<=":
-            result.append((token.LEFTSHIFTEQUAL, "<<="))
-            tokens.next()
-        elif tokens.peek()[1] == ">>=":
-            result.append((token.RIGHTSHIFTEQUAL, ">>="))
-            tokens.next()
-        elif tokens.peek()[1] == "**=":
-            result.append((token.DOUBLESTAREQUAL, "**="))
-            tokens.next()
-        elif tokens.peek()[1] == "//=":
-            result.append((token.DOUBLESLASHEQUAL, "//="))
-            tokens.next()
-        else:
-            raise SyntaxError
+    if tokens.check(token.OP, "+="):
+        result.append(tokens.accept(token.OP, "+=", result_token=token.PLUSEQUAL))
+    elif tokens.check(token.OP, "-="):
+        result.append(tokens.accept(token.OP, "-=", result_token=token.MINEQUAL))
+    elif tokens.check(token.OP, "*="):
+        result.append(tokens.accept(token.OP, "*=", result_token=token.STAREQUAL))
+    elif tokens.check(token.OP, "/="):
+        result.append(tokens.accept(token.OP, "/=", result_token=token.SLASHEQUAL))
+    elif tokens.check(token.OP, "%="):
+        result.append(tokens.accept(token.OP, "%=", result_token=token.PERCENTEQUAL))
+    elif tokens.check(token.OP, "&="):
+        result.append(tokens.accept(token.OP, "&=", result_token=token.AMPEREQUAL))
+    elif tokens.check(token.OP, "|="):
+        result.append(tokens.accept(token.OP, "|=", result_token=token.VBAREQUAL))
+    elif tokens.check(token.OP, "^="):
+        result.append(tokens.accept(token.OP, "^=", result_token=token.CIRCUMFLEXEQUAL))
+    elif tokens.check(token.OP, "<<="):
+        result.append(tokens.accept(token.OP, "<<=", result_token=token.LEFTSHIFTEQUAL))
+    elif tokens.check(token.OP, ">>="):
+        result.append(tokens.accept(token.OP, ">>=", result_token=token.RIGHTSHIFTEQUAL))
+    elif tokens.check(token.OP, "**="):
+        result.append(tokens.accept(token.OP, "**=", result_token=token.DOUBLESTAREQUAL))
+    elif tokens.check(token.OP, "//="):
+        result.append(tokens.accept(token.OP, "//=", result_token=token.DOUBLESLASHEQUAL))
     else:
-        raise SyntaxError
+        tokens.error()
 
     return result
 
@@ -495,54 +489,30 @@ def _print_stmt(tokens):
     #
     result = [symbol.print_stmt]
 
-    # test (',' test)* [',']
-    def option1(tokens):
-        result = []
-        result.append(_test(tokens))
-        result = result + matcher(tokens, [comma_test], repeat=True, optional=True)
-        
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-            result.append((token.COMMA, ","))
-            tokens.next()
-        
-        return result
+    result.append(tokens.accept(token.NAME, "print"))
 
-    # '>>' test [ (',' test)+ [','] ]
-    def option2(tokens):
-        result = []
+    if tokens.check_test():
+        result.append(_test(tokens))
+
+        while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_test(tokens))
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
+    elif tokens.check(token.OP, ">>"):
         result.append(tokens.accept(token.OP, ">>", result_token=token.RIGHTSHIFT))
         result.append(_test(tokens))
 
-        option =  matcher(tokens, [option2test], optional=True)
-        if option:
-            result = result + option
+        if tokens.check(token.OP, ","):
+            while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+                result.append(_test(tokens))
 
-        return result
-    
-    # (',' test)+ [',']
-    def option2test(tokens):
-        result = []
-        result = result + matcher(tokens, [comma_test], repeat=True)
+            if tokens.check(token.OP, ","):
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
 
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-            result.append((token.COMMA, ","))
-            tokens.next()
-        
-        return result
-
-    # (',' test)
-    def comma_test(tokens):
-        result = []
-        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-        result.append(_test(tokens))
-        return result
-
-    result.append(tokens.accept(token.NAME, "print", error_msg="Expecting: 'print'"))
-
-    optionresult = matcher(tokens, [option1, option2], optional=True)
-    if optionresult:
-        result = result + optionresult
-    
     return result
 
 def _del_stmt(tokens):
@@ -553,12 +523,12 @@ def _del_stmt(tokens):
         del_stmt: 'del' exprlist
     """
     result = [symbol.del_stmt]
-    
-    result.append(tokens.accept(token.NAME, "del", error_msg="Expecting 'del'"))    
+
+    result.append(tokens.accept(token.NAME, "del"))
     result.append(_exprlist(tokens))
-    
+
     return result
-    
+
 def _pass_stmt(tokens):
     """Parse a pass statement.
 
@@ -567,9 +537,9 @@ def _pass_stmt(tokens):
         pass_stmt: 'pass'
     """
     result = [symbol.pass_stmt]
-    
-    result.append(tokens.accept(token.NAME, "pass", error_msg="Expecting 'pass'"))
-    
+
+    result.append(tokens.accept(token.NAME, "pass"))
+
     return result
 
 def _flow_stmt(tokens):
@@ -580,13 +550,20 @@ def _flow_stmt(tokens):
         flow_stmt: break_stmt | continue_stmt | return_stmt | raise_stmt | yield_stmt
     """
     result = [symbol.flow_stmt]
-    
-    try:
-        result.append(matcher(tokens, [_break_stmt, _continue_stmt, _return_stmt,
-           _raise_stmt, _yield_stmt]))
-    except SyntaxError:
-        raise syntax_error("Expecting: break_stmt | continue_stmt | return_stmt | " \
-            "raise_stmt | yield_stmt", tokens.peek())
+
+    if tokens.check(token.NAME, "break"):
+        result.append(_break_stmt(tokens))
+    elif tokens.check(token.NAME, "continue"):
+        result.append(_continue_stmt(tokens))
+    elif tokens.check(token.NAME, "return"):
+        result.append(_return_stmt(tokens))
+    elif tokens.check(token.NAME, "raise"):
+        result.append(_raise_stmt(tokens))
+    elif tokens.check(token.NAME, "yield"):
+        result.append(_yield_stmt(tokens))
+    else:
+        tokens.error("Expecting: break_stmt | continue_stmt | return_stmt | "
+                     "raise_stmt | yield_stmt")
 
     return result
 
@@ -598,9 +575,9 @@ def _break_stmt(tokens):
         break_stmt: 'break'
     """
     result = [symbol.break_stmt]
-    
-    result.append(tokens.accept(token.NAME, "break", error_msg="Expecting 'break'"))
-    
+
+    result.append(tokens.accept(token.NAME, "break"))
+
     return result
 
 def _continue_stmt(tokens):
@@ -611,9 +588,9 @@ def _continue_stmt(tokens):
         continue_stmt: 'continue'
     """
     result = [symbol.continue_stmt]
-    
-    result.append(tokens.accept(token.NAME, "continue", error_msg="Expecting 'continue'"))
-    
+
+    result.append(tokens.accept(token.NAME, "continue"))
+
     return result
 
 def _return_stmt(tokens):
@@ -624,13 +601,12 @@ def _return_stmt(tokens):
         return_stmt: 'return' [testlist]
     """
     result = [symbol.return_stmt]
-    
-    result.append(tokens.accept(token.NAME, "return", error_msg="Expecting 'return'"))
-    
-    testlist = matcher(tokens, [_testlist], optional=True)
-    if testlist:
-        result.append(testlist)
-    
+
+    result.append(tokens.accept(token.NAME, "return"))
+
+    if tokens.check_test():
+        result.append(_testlist(tokens))
+
     return result
 
 def _yield_stmt(tokens):
@@ -641,9 +617,9 @@ def _yield_stmt(tokens):
         yield_stmt: yield_expr
     """
     result = [symbol.yield_stmt]
-    
+
     result.append(_yield_expr(tokens))
-    
+
     return result
 
 def _raise_stmt(tokens):
@@ -654,42 +630,20 @@ def _raise_stmt(tokens):
         raise_stmt: 'raise' [test [',' test [',' test]]]
     """
     result = [symbol.raise_stmt]
-    
+
     result.append(tokens.accept(token.NAME, "raise"))
-    
-    # test [',' test [',' test]]
-    def option1(tokens):
-        result = []
+
+    if tokens.check_test():
         result.append(_test(tokens))
-        
-        option = matcher(tokens, [comma_test_comma_test], optional=True)
-        if option:
-            result = result + option
-        
-        return result
-    
-    # ',' test [',' test]
-    def comma_test_comma_test(tokens):
-        result = []
-        result = result + comma_test(tokens)
-        
-        option = matcher(tokens, [comma_test], optional=True)
-        if option:
-            result = result + option
-        
-        return result
-    
-    # ',' test
-    def comma_test(tokens):
-        result = []
-        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-        result.append(_test(tokens))
-        return result
-    
-    option = matcher(tokens, [option1], optional=True)
-    if option:
-        result = result + option
-    
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_test(tokens))
+
+            if tokens.check(token.OP, ","):
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+                result.append(_test(tokens))
+
     return result
 
 def _import_stmt(tokens):
@@ -700,10 +654,10 @@ def _import_stmt(tokens):
         import_stmt: import_name | import_from
     """
     result = [symbol.import_stmt]
-    
-    #result.append(matcher(tokens, [_import_name, _import_from]))
+
+    # TODO
     result.append(_import_name(tokens))
-    
+
     return result
 
 def _import_name(tokens):
@@ -714,8 +668,8 @@ def _import_name(tokens):
         import_name: 'import' dotted_as_names
     """
     result = [symbol.import_name]
-    
-    result.append(tokens.accept(token.NAME, "import", error_msg="Expecting 'import'"))    
+
+    result.append(tokens.accept(token.NAME, "import"))
     result.append(_dotted_as_names(tokens))
 
     return result
@@ -747,12 +701,12 @@ def _dotted_as_name(tokens):
         dotted_as_name: dotted_name ['as' NAME]
     """
     result = [symbol.dotted_as_name]
-    
+
     result.append(_dotted_name(tokens))
-    
-    if tokens.peek()[1] == "as":
+
+    if tokens.check(token.NAME, "as"):
         raise NotImplementedError
-    
+
     return result
 
 def _import_as_names(tokens):
@@ -772,10 +726,10 @@ def _dotted_as_names(tokens):
         dotted_as_names: dotted_as_name (',' dotted_as_name)*
     """
     result = [symbol.dotted_as_names]
-    
+
     result.append(_dotted_as_name(tokens))
-        
-    if tokens.peek()[1] == ",":
+
+    if tokens.check(token.OP, ","):
         raise NotImplementedError
 
     return result
@@ -788,12 +742,12 @@ def _dotted_name(tokens):
         dotted_name: NAME ('.' NAME)*
     """
     result = [symbol.dotted_name]
-    
-    result.append(tokens.accept(token.NAME, error_msg="Expecting NAME"))
-        
-    if tokens.peek()[1] == ".":
+
+    result.append(tokens.accept(token.NAME))
+
+    if tokens.check(token.OP, "."):
         raise NotImplementedError
-    
+
     return result
 
 def _global_stmt(tokens):
@@ -804,23 +758,14 @@ def _global_stmt(tokens):
         global_stmt: 'global' NAME (',' NAME)*
     """
     result = [symbol.global_stmt]
-    
-    result.append(tokens.accept(token.NAME, "global", error_msg="Expecting: 'global'"))
+
+    result.append(tokens.accept(token.NAME, "global"))
     result.append(tokens.accept(token.NAME))
-    
-    # ',' NAME
-    def comma_name(tokens):
-        result = []
-        
+
+    while tokens.check(token.OP, ","):
         result.append(tokens.accept(token.OP, result_token=token.COMMA))
-        result.append(tokens.accept(token.NAME))        
-        
-        return result
-    
-    comma_name_repeat = matcher(tokens, [comma_name], repeat=True, optional=True)
-    if comma_name_repeat:
-        result = result + comma_name_repeat
-    
+        result.append(tokens.accept(token.NAME))
+
     return result
 
 def _exec_stmt(tokens):
@@ -831,35 +776,17 @@ def _exec_stmt(tokens):
         exec_stmt: 'exec' expr ['in' test [',' test]]
     """
     result = [symbol.exec_stmt]
-    
-    result.append(tokens.accept(token.NAME, "exec", error_msg="Expecting 'exec'"))
+
+    result.append(tokens.accept(token.NAME, "exec"))
     result.append(_expr(tokens))
 
-    # ',' test
-    def comma_test(tokens):
-        result = []
-        
-        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-        result.append(_test(tokens))
-                
-        return result
-
-    # 'in' test [',' test]
-    def in_test(tokens):
-        result = []
-        
+    if tokens.check(token.NAME, "in"):
         result.append(tokens.accept(token.NAME, "in"))
         result.append(_test(tokens))
-        
-        option = matcher(tokens, [comma_test], optional=True)
-        if option:
-            result = result + option
-                
-        return result
 
-    option = matcher(tokens, [in_test], optional=True)
-    if option:
-        result = result + option
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_test(tokens))
 
     return result
 
@@ -871,22 +798,13 @@ def _assert_stmt(tokens):
         assert_stmt: 'assert' test [',' test]
     """
     result = [symbol.assert_stmt]
-    
-    result.append(tokens.accept(token.NAME, "assert", error_msg="Expecting 'assert'"))
+
+    result.append(tokens.accept(token.NAME, "assert"))
     result.append(_test(tokens))
 
-    # ',' test
-    def comma_test(tokens):
-        result = []
-        
+    if tokens.check(token.OP, ","):
         result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_test(tokens))
-                
-        return result
-
-    option = matcher(tokens, [comma_test], optional=True)
-    if option:
-        result = result + option
 
     return result
 
@@ -898,13 +816,26 @@ def _compound_stmt(tokens):
         compound_stmt: if_stmt | while_stmt | for_stmt | try_stmt | with_stmt | funcdef | classdef | decorated
     """
     result = [symbol.compound_stmt]
-  
-    try:
-        result.append(matcher(tokens, [_if_stmt, _while_stmt, _for_stmt, _try_stmt,
-            _with_stmt, _funcdef, _classdef, _decorated]))
-    except SyntaxError:
-        raise syntax_error("Expecting: if_stmt | while_stmt | for_stmt | "
-            "try_stmt | with_stmt | funcdef | classdef | decorated", tokens.peek())
+
+    if tokens.check(token.NAME, "if"):
+        result.append(_if_stmt(tokens))
+    elif tokens.check(token.NAME, "while"):
+        result.append(_while_stmt(tokens))
+    elif tokens.check(token.NAME, "for"):
+        result.append(_for_stmt(tokens))
+    elif tokens.check(token.NAME, "try"):
+        result.append(_try_stmt(tokens))
+    elif tokens.check(token.NAME, "with"):
+        result.append(_with_stmt(tokens))
+    elif tokens.check(token.NAME, "def"):
+        result.append(_funcdef(tokens))
+    elif tokens.check(token.NAME, "class"):
+        result.append(_classdef(tokens))
+    elif tokens.check(token.OP, "@"):
+        result.append(_decorated(tokens))
+    else:
+        tokens.error("Expecting: if_stmt | while_stmt | for_stmt | "
+                     "try_stmt | with_stmt | funcdef | classdef | decorated")
 
     return result
 
@@ -916,28 +847,20 @@ def _if_stmt(tokens):
         if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]
     """
     result = [symbol.if_stmt]
-    
-    result.append(tokens.accept(token.NAME, "if", error_msg="Expecting 'if'"))
+
+    result.append(tokens.accept(token.NAME, "if"))
     result.append(_test(tokens))
     result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
-    
-    if tokens.peek()[1] == "elif":
+
+    if tokens.check(token.NAME, "elif"):
         raise NotImplementedError
-    
-    def else_suite(tokens):
-        result = []
-        
+
+    if tokens.check(token.NAME, "else"):
         result.append(tokens.accept(token.NAME, "else"))
         result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
         result.append(_suite(tokens))
-        
-        return result
-    
-    else_result = matcher(tokens, [else_suite], optional=True)
-    if else_result:
-        result = result + else_result
-        
+
     return result
 
 def _while_stmt(tokens):
@@ -948,16 +871,15 @@ def _while_stmt(tokens):
         while_stmt: 'while' test ':' suite ['else' ':' suite]
     """
     result = [symbol.while_stmt]
-    
-    result.append(tokens.accept(token.NAME, "while", error_msg="Expecting 'while'"))
+
+    result.append(tokens.accept(token.NAME, "while"))
     result.append(_test(tokens))
     result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
 
-    if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "else":
-        tokens.next()
-        
-        result.append(tokens.accept(token.OP, ":", error_msg="Expecting: ':'"))
+    if tokens.check(token.NAME, "else"):
+        result.append(tokens.accept(token.NAME, "else"))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
         result.append(_suite(tokens))
 
     return result
@@ -970,26 +892,18 @@ def _for_stmt(tokens):
         for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]
     """
     result = [symbol.for_stmt]
-    
+
     result.append(tokens.accept(token.NAME, "for"))
     result.append(_exprlist(tokens))
     result.append(tokens.accept(token.NAME, "in"))
     result.append(_testlist(tokens))
     result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
-    
-    def optional_else(tokens):
-        result = []
-        
+
+    if tokens.check(token.NAME, "else"):
         result.append(tokens.accept(token.NAME, "else"))
         result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
         result.append(_suite(tokens))
-
-        return result
-    
-    option = matcher(tokens, [optional_else], optional=True)
-    if option:
-        result.append(option)
 
     return result
 
@@ -1005,55 +919,38 @@ def _try_stmt(tokens):
                    'finally' ':' suite))
     """
     result = [symbol.try_stmt]
-    
-    result.append(tokens.accept(token.NAME, "try", error_msg="Expecting: 'try'"))
-    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+
+    result.append(tokens.accept(token.NAME, "try"))
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
-    
-    # except_clause ':' suite
-    def except_clause_colon_suite(tokens):
-        result = []
-        result.append(_except_clause(tokens))
-        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
-        result.append(_suite(tokens))
-        return result
 
-    # 'else' ':' suite
-    def else_colon_suite(tokens):
-        result = []
-        result.append(tokens.accept(token.NAME, "else", error_msg="Expecting: 'else'"))
-        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
-        result.append(_suite(tokens))
-        return result
-        
-    # 'finally' ':' suite
-    def finally_colon_suite(tokens):
-        result = []
-        result.append(tokens.accept(token.NAME, "finally", error_msg="Expecting: 'finally'"))
-        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
-        result.append(_suite(tokens))
-        return result
-        
-    # (except_clause ':' suite)+
-    # ['else' ':' suite]
-    # ['finally' ':' suite]
-    def option1(tokens):
-        result = []
-        
-        result = result + matcher(tokens, [except_clause_colon_suite], repeat=True)
-        
-        option = matcher(tokens, [else_colon_suite], repeat=True, optional=True)
-        if option:
-            result = result + option
-        
-        option = matcher(tokens, [finally_colon_suite], repeat=True, optional=True)
-        if option:
-            result = result + option
+    if tokens.check(token.NAME, "except"):
+        while tokens.check(token.NAME, "except"):
+            result.append(_except_clause(tokens))
+            result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+            result.append(_suite(tokens))
 
-        return result
-    
-    result = result + matcher(tokens, [option1, finally_colon_suite])
-    
+        if tokens.check(token.NAME, "else"):
+            result.append(tokens.accept(token.NAME, "else"))
+            result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+            result.append(_suite(tokens))
+
+        if tokens.check(token.NAME, "finally"):
+            result.append(tokens.accept(token.NAME, "finally"))
+            result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+            result.append(_suite(tokens))
+
+    elif tokens.check(token.NAME, "finally"):
+        result.append(tokens.accept(token.NAME, "finally"))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+        result.append(_suite(tokens))
+
+    else:
+        tokens.error("Expecting ((except_clause ':' suite)+ "
+                     "['else' ':' suite] "
+                     "['finally' ':' suite] | "
+                     "'finally' ':' suite)")
+
     return result
 
 def _with_stmt(tokens):
@@ -1064,26 +961,17 @@ def _with_stmt(tokens):
         with_stmt: 'with' with_item (',' with_item)*  ':' suite
     """
     result = [symbol.with_stmt]
-    
-    result.append(tokens.accept(token.NAME, "with", error_msg="Expecting: 'with'"))
-    result.append(_with_item(tokens))
-    
-    # ',' with_item
-    def comma_with_item(tokens):
-        result = []
 
+    result.append(tokens.accept(token.NAME, "with"))
+    result.append(_with_item(tokens))
+
+    while tokens.check(token.OP, ","):
         result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_with_item(tokens))
-        
-        return result
-    
-    option = matcher(tokens, [comma_with_item], repeat=True, optional=True)
-    if option:
-        result = result + option
-    
-    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
-    
+
     return result
 
 def _with_item(tokens):
@@ -1096,19 +984,10 @@ def _with_item(tokens):
     result = [symbol.with_item]
 
     result.append(_test(tokens))
-    
-    # 'as' expr
-    def as_expr(tokens):
-        result = []
-        
+
+    if tokens.check(token.NAME, "as"):
         result.append(tokens.accept(token.NAME, "as"))
         result.append(_expr(tokens))
-        
-        return result
-
-    option = matcher(tokens, [as_expr], optional=True)
-    if option:
-        result = result + option
 
     return result
 
@@ -1121,43 +1000,23 @@ def _except_clause(tokens):
     """
     result = [symbol.except_clause]
 
-    result.append(tokens.accept(token.NAME, "except", error_msg="Expecting: 'except'"))
-    
-    # ('as' | ',') test
-    def as_or_comma_test(tokens):
-        result = []
-        
-        if tokens.peek()[0] == token.NAME and tokens.peek()[1] == "as":
-            result.append((tokens.peek()[0], tokens.peek()[1]))
-            tokens.next()
-        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-            result.append((tokens.peek()[0], tokens.peek()[1]))
-            tokens.next()
-        else:
-            raise SyntaxError
-        
+    result.append(tokens.accept(token.NAME, "except"))
+
+    if tokens.check_test():
         result.append(_test(tokens))
-        
-        return result
-    
-    # test [('as' | ',') test]
-    def option1(tokens):
-        result = []
-        
-        result.append(_test(tokens))
-        
-        option = matcher(tokens, [as_or_comma_test], optional=True)
-        if option:
-            result = result + option
-            
-        return result
-    
-    option = matcher(tokens, [option1], optional=True)
-    if option:
-        result = result + option
+
+        if tokens.check(token.NAME, "as") or tokens.check(token.OP, ","):
+            if tokens.check(token.NAME, "as"):
+                result.append(tokens.accept(token.NAME, "as"))
+            elif tokens.check(token.OP, ","):
+                result.append(tokens.accept(token.OP, ","))
+            else:
+                tokens.error("Expecting ('as' | ',')")
+
+            result.append(_test(tokens))
 
     return result
-    
+
 def _suite(tokens):
     """Parse a suite.
 
@@ -1167,20 +1026,18 @@ def _suite(tokens):
     """
     result = [symbol.suite]
 
-    if tokens.peek()[0] == token.NEWLINE:
-        result.append((token.NEWLINE, ""))
-        tokens.next()
+    if tokens.check(token.NEWLINE):
+        result.append(tokens.accept(token.NEWLINE, result_name=""))
+        result.append(tokens.accept(token.INDENT, result_name=""))
 
-        result.append(tokens.accept(token.INDENT, result_name='', error_msg="Expecting INDENT"))
-        
         try:
-            while tokens.peek()[0] != token.DEDENT:
+            while not tokens.check(token.DEDENT):
                 result.append(_stmt(tokens))
 
         except StopIteration:
             pass # raise "Expecting DEDENT" in next block
 
-        result.append(tokens.accept(token.DEDENT, result_name='', error_msg="Expecting DEDENT"))
+        result.append(tokens.accept(token.DEDENT, result_name=""))
     else:
         raise NotImplementedError
 
@@ -1196,7 +1053,7 @@ def _testlist_safe(tokens):
     result = [symbol.testlist_safe]
 
     result.append(_old_test(tokens))
-    
+
     # TODO
 
     return result
@@ -1209,11 +1066,11 @@ def _old_test(tokens):
         old_test: or_test | old_lambdef
     """
     result = [symbol.old_test]
-    
+
     result.append(_or_test(tokens))
 
     # TODO
-    
+
     return result
 
 def _old_lambdef(tokens):
@@ -1234,9 +1091,9 @@ def _test(tokens):
     """
     result = [symbol.test]
     result.append(_or_test(tokens))
-    
+
     # TODO if/lambdef
-    
+
     return result
 
 def _or_test(tokens):
@@ -1249,16 +1106,10 @@ def _or_test(tokens):
     result = [symbol.or_test]
     result.append(_and_test(tokens))
 
-    def or_and_test(tokens):
-        result = []
+    while tokens.check(token.NAME, "or"):
         result.append(tokens.accept(token.NAME, "or"))
         result.append(_and_test(tokens))
-        return result
 
-    repeat = matcher(tokens, [or_and_test], repeat=True, optional=True)
-    if repeat:
-        result = result + repeat
-    
     return result
 
 def _and_test(tokens):
@@ -1270,17 +1121,11 @@ def _and_test(tokens):
     """
     result = [symbol.and_test]
     result.append(_not_test(tokens))
-    
-    def and_not_test(tokens):
-        result = []
+
+    while tokens.check(token.NAME, "and"):
         result.append(tokens.accept(token.NAME, "and"))
         result.append(_not_test(tokens))
-        return result
 
-    repeat = matcher(tokens, [and_not_test], repeat=True, optional=True)
-    if repeat:
-        result = result + repeat
-    
     return result
 
 def _not_test(tokens):
@@ -1292,16 +1137,11 @@ def _not_test(tokens):
     """
     result = [symbol.not_test]
 
-    # 'not' not_test
-    def not_test(tokens):
-        result = []
-        
+    if tokens.check(token.NAME, "not"):
         result.append(tokens.accept(token.NAME, "not"))
         result.append(_not_test(tokens))
-        
-        return result
-    
-    result = result + matcher(tokens, [not_test, [_comparison]])
+    else:
+        result.append(_comparison(tokens))
 
     return result
 
@@ -1313,9 +1153,12 @@ def _comparison(tokens):
         comparison: expr (comp_op expr)*
     """
     result = [symbol.comparison]
-    
+
     result.append(_expr(tokens))
-    result = result + matcher(tokens, [(_comp_op, _expr)], optional=True, repeat=True)
+
+    while tokens.check_comp_op():
+        result.append(_comp_op(tokens))
+        result.append(_expr(tokens))
 
     return result
 
@@ -1328,53 +1171,31 @@ def _comp_op(tokens):
     """
     result = [symbol.comp_op]
 
-    parser_error = syntax_error("Expecting: '<'|'>'|'=='|'>='|'<='|'<>'|'!='"
-        "|'in'|'not' 'in'|'is'|'is' 'not'", tokens.peek())
-
-    if tokens.peek()[0] == token.OP:
-        if tokens.peek()[1] == "<":
-            result.append((token.LESS, "<"))
-            tokens.next()
-        elif tokens.peek()[1] == ">":
-            result.append((token.GREATER, ">"))
-            tokens.next()
-        elif tokens.peek()[1] == "==":
-            result.append((token.EQEQUAL, "=="))
-            tokens.next()
-        elif tokens.peek()[1] == ">=":
-            result.append((token.GREATEREQUAL, ">="))
-            tokens.next()
-        elif tokens.peek()[1] == "<=":
-            result.append((token.LESSEQUAL, "<="))
-            tokens.next()
-        elif tokens.peek()[1] == "<>":
-            result.append((token.NOTEQUAL, "<>"))
-            tokens.next()
-        elif tokens.peek()[1] == "!=":
-            result.append((token.NOTEQUAL, "!="))
-            tokens.next()
-        else:
-            raise parser_error
-    elif tokens.peek()[0] == token.NAME:
-        if tokens.peek()[1] == "in":
-            result.append((tokens.peek()[0], tokens.peek()[1]))
-            tokens.next()
-        elif tokens.peek()[1] == "not":
-            result.append((tokens.peek()[0], tokens.peek()[1]))
-            tokens.next()
-            if tokens.peek()[0] == "in":
-                result.append((tokens.peek()[0], tokens.peek()[1]))
-                tokens.next()
-            else:
-                raise parser_error
-        elif tokens.peek()[1] == "is":
-            result.append((tokens.peek()[0], tokens.peek()[1]))
-            tokens.next()
-            if tokens.peek()[0] == "not":
-                result.append((tokens.peek()[0], tokens.peek()[1]))
-                tokens.next()
+    if tokens.check(token.OP, "<"):
+        result.append(tokens.accept(token.OP, "<", result_token=token.LESS))
+    elif tokens.check(token.OP, ">"):
+        result.append(tokens.accept(token.OP, ">", result_token=token.GREATER))
+    elif tokens.check(token.OP, "=="):
+        result.append(tokens.accept(token.OP, "==", result_token=token.EQEQUAL))
+    elif tokens.check(token.OP, ">="):
+        result.append(tokens.accept(token.OP, ">=", result_token=token.GREATEREQUAL))
+    elif tokens.check(token.OP, "<="):
+        result.append(tokens.accept(token.OP, "<=", result_token=token.LESSEQUAL))
+    elif tokens.check(token.OP, "<>"):
+        result.append(tokens.accept(token.OP, "<>", result_token=token.NOTEQUAL))
+    elif tokens.check(token.OP, "!="):
+        result.append(tokens.accept(token.OP, "!=", result_token=token.NOTEQUAL))
+    elif tokens.check(token.NAME, "in"):
+        result.append(tokens.accept(token.NAME, "in"))
+    elif tokens.check(token.NAME, "not") and tokens.check(token.NAME, "in", lookahead=2):
+        result.append(tokens.accept(token.NAME, "not"))
+        result.append(tokens.accept(token.NAME, "in"))
+    elif tokens.check(token.NAME, "is"):
+        result.append(tokens.accept(token.NAME, "is"))
+        if tokens.check(token.NAME, "not"):
+            result.append(tokens.accept(token.NAME, "not"))
     else:
-        raise parser_error
+        tokens.error("Expecting: '<'|'>'|'=='|'>='|'<='|'<>'|'!='|'in'|'not' 'in'|'is'|'is' 'not'")
 
     return result
 
@@ -1389,7 +1210,7 @@ def _expr(tokens):
     result.append(_xor_expr(tokens))
 
     # TODO | xor_expr
-    
+
     return result
 
 def _xor_expr(tokens):
@@ -1403,7 +1224,7 @@ def _xor_expr(tokens):
     result.append(_and_expr(tokens))
 
     # TODO ^ and_exr
-    
+
     return result
 
 def _and_expr(tokens):
@@ -1415,9 +1236,9 @@ def _and_expr(tokens):
     """
     result = [symbol.and_expr]
     result.append(_shift_expr(tokens))
-    
+
     # TODO
-    
+
     return result
 
 def _shift_expr(tokens):
@@ -1429,9 +1250,9 @@ def _shift_expr(tokens):
     """
     result = [symbol.shift_expr]
     result.append(_arith_expr(tokens))
-    
+
     # TODO
-    
+
     return result
 
 def _arith_expr(tokens):
@@ -1443,17 +1264,14 @@ def _arith_expr(tokens):
     """
     result = [symbol.arith_expr]
     result.append(_term(tokens))
-    
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "+":
-        result.append((token.PLUS, "+"))
-        tokens.next()
-        result.append(_term(tokens))
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "-":
-        result.append((token.MINUS, "-"))
-        tokens.next()
-        result.append(_term(tokens))
-    
-    # TODO: repetition
+
+    while tokens.check(token.OP, "+") or tokens.check(token.OP, "-"):
+        if tokens.check(token.OP, "+"):
+            result.append(tokens.accept(token.OP, "+", result_token=token.PLUS))
+            result.append(_term(tokens))
+        elif tokens.check(token.OP, "-"):
+            result.append(tokens.accept(token.OP, "-", result_token=token.MINUS))
+            result.append(_term(tokens))
 
     return result
 
@@ -1466,29 +1284,23 @@ def _term(tokens):
     """
     result = [symbol.term]
     result.append(_factor(tokens))
-    
-    def _factor_op(tokens):
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == "*":
-            result = (token.STAR, "*")
-            tokens.next()
-        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "/":
-            result = (token.SLASH, "/")
-            tokens.next()
-        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "%":
-            result = (token.PERCENT, "%")
-            tokens.next()
-        elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "//":
-            result = (token.DOUBLESLASH, "//")
-            tokens.next()
-        else:
-            raise SyntaxError
 
-        return result
-    
-    result = result + matcher(tokens, [(_factor_op, _factor)], optional=True, repeat=True)
+    while tokens.check(token.OP, "*") or tokens.check(token.OP, "/") or \
+          tokens.check(token.OP, "%") or tokens.check(token.OP, "//"):
+
+        if tokens.check(token.OP, "*"):
+            result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
+        elif tokens.check(token.OP, "/"):
+            result.append(tokens.accept(token.OP, "/", result_token=token.SLASH))
+        elif tokens.check(token.OP, "%"):
+            result.append(tokens.accept(token.OP, "%", result_token=token.PERCENT))
+        elif tokens.check(token.OP, "//"):
+            result.append(tokens.accept(token.OP, "//", result_token=token.DOUBLESLASH))
+
+        result.append(_factor(tokens))
 
     return result
-    
+
 def _factor(tokens):
     """Parse a factor statement.
 
@@ -1497,12 +1309,12 @@ def _factor(tokens):
         factor: ('+'|'-'|'~') factor | power
     """
     result = [symbol.factor]
-    
+
     # TODO
-    
+
     result.append(_power(tokens))
     return result
-    
+
 def _power(tokens):
     """Parse a power statement.
 
@@ -1511,10 +1323,11 @@ def _power(tokens):
         power: atom trailer* ['**' factor]
     """
     result = [symbol.power]
-    
+
     result.append(_atom(tokens))
-    
-    result = result + matcher(tokens, [[_trailer]], optional=True, repeat=True)
+
+    while tokens.check(token.OP, "(") or tokens.check(token.OP, "[") or tokens.check(token.OP, "."):
+        result.append(_trailer(tokens))
 
     # TODO ['**' factor]
 
@@ -1532,53 +1345,47 @@ def _atom(tokens):
                NAME | NUMBER | STRING+)
     """
     result = [symbol.atom]
-    
-    keywords = ["and", "as", "assert", "break", "class", "continue", "def",
-        "del", "elif", "else", "except", "exec", "finally", "for", "from",
-        "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
-        "print", "raise", "return", "try", "while", "with", "yield"]
 
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
-        result.append((token.LPAR, "("))
-        tokens.next()
+    keywords = ("and", "as", "assert", "break", "class", "continue", "def",
+                "del", "elif", "else", "except", "exec", "finally", "for", "from",
+                "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
+                "print", "raise", "return", "try", "while", "with", "yield")
+
+    if tokens.check(token.OP, "("):
+        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
 
         # TODO yield_expr
         result.append(_testlist_comp(tokens))
 
-        if not (tokens.peek()[0] == token.OP and tokens.peek()[1] == "("):
-            result.append((token.RPAR, ")"))
-            tokens.next()
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
-        result.append((token.LSQB, "["))
-        tokens.next()
-        listmaker = matcher(tokens, [_listmaker], optional=True)
-        if listmaker:
-            result.append(listmaker)
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
+    elif tokens.check(token.OP, "["):
+        result.append(tokens.accept(token.OP, "[", result_token=token.LSQB))
+
+        if not tokens.check(token.OP, "]"):
+            result.append(_listmaker(tokens))
+
         result.append(tokens.accept(token.OP, "]", result_token=token.RSQB))
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "{":
+    elif tokens.check(token.OP, "{"):
         raise NotImplementedError
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "`":
+    elif tokens.check(token.OP, "`"):
         raise NotImplementedError
-    elif tokens.peek()[0] == token.NUMBER:
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
-    elif tokens.peek()[0] == token.NAME:
-        if tokens.peek()[1] in keywords:
-            raise SyntaxError # keywords cannot appear here
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
-    elif tokens.peek()[0] == token.STRING:
-        result.append((tokens.peek()[0], tokens.peek()[1]))
-        tokens.next()
+    elif tokens.check(token.NUMBER):
+        result.append(tokens.accept(token.NUMBER))
+    elif tokens.check(token.NAME):
+        if tokens.check(token.NAME, keywords):
+            raise tokens.error("Keywords cannot appear here")
+        result.append(tokens.accept(token.NAME))
+    elif tokens.check(token.STRING):
+        result.append(tokens.accept(token.STRING))
     else:
-        raise syntax_error("Expecting: ('(' [yield_expr|testlist_comp] ')' | "
-            "'[' [listmaker] ']' | "
-            "'{' [dictorsetmaker] '}' | "
-            "'`' testlist1 '`' | "
-            "NAME | NUMBER | STRING+)", tokens.peek())
-        
+        tokens.error("Expecting: ('(' [yield_expr|testlist_comp] ')' | "
+                     "'[' [listmaker] ']' | "
+                     "'{' [dictorsetmaker] '}' | "
+                     "'`' testlist1 '`' | "
+                     "NAME | NUMBER | STRING+)")
+
     return result
-    
+
 def _listmaker(tokens):
     """Parse a listmaker statement.
 
@@ -1587,30 +1394,22 @@ def _listmaker(tokens):
         listmaker: test ( list_for | (',' test)* [','] )
     """
     result = [symbol.listmaker]
-    
+
     result.append(_test(tokens))
 
-    # ',' test
-    def comma_test(tokens):
-        result = []
-        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-        result.append(_test(tokens))
-        return result
-    
-    # (',' test)*
-    def comma_test_repeat(tokens):
-        return matcher(tokens, [comma_test], repeat=True, optional=True)
+    if tokens.check(token.NAME, "for"):
+        result.append(_list_for(tokens))
+    elif tokens.check(token.OP, ","):
+        # this is a difficult one. the ',' we just matched could either be from
+        # the subexpression (',' test)* or from the subexpression [','], since
+        # the * operator from the first subexpression could be matching zero times.
+        while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_test(tokens))
 
-    # (',' test)* [',']
-    def comma_test_repeat_comma(tokens):
-        result = comma_test_repeat(tokens)
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-            result.append((token.COMMA, ","))
-            tokens.next()
-        return result
-    
-    result = result + matcher(tokens, [[_list_for], comma_test_repeat_comma])
-    
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
     return result
 
 def _testlist_comp(tokens):
@@ -1621,21 +1420,21 @@ def _testlist_comp(tokens):
         testlist_comp: test ( comp_for | (',' test)* [','] )
     """
     result = [symbol.testlist_comp]
-    
+
     result.append(_test(tokens))
 
-    # TODO comp_for
-    
-    # TODO this is incorrect, needs to be rewritten with matcher
-    while tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-        result.append((token.COMMA, ","))
-        tokens.next()
-        
-        result.append(_test(tokens))
-    
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-        result.append((token.COMMA, ","))
-        tokens.next()
+    if tokens.check(token.NAME, "for"):
+        result.append(_comp_for(tokens))
+    elif tokens.check(token.OP, ","):
+        # this is a difficult one. the ',' we just matched could either be from
+        # the subexpression (',' test)* or from the subexpression [','], since
+        # the * operator from the first subexpression could be matching zero times.
+        while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_test(tokens))
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
 
     return result
 
@@ -1657,30 +1456,23 @@ def _trailer(tokens):
     """
     result = [symbol.trailer]
 
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
-        result.append((token.LPAR, "("))
-        tokens.next()
+    if tokens.check(token.OP, "("):
+        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
 
-        arglist = matcher(tokens, [_arglist], optional=True)
-        if arglist:
-            result.append(arglist)
-            
-        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting: ')'"))
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == "[":
-        result.append((token.LSQB, "["))
-        tokens.next()
-        
+        if not tokens.check(token.OP, ")"):
+            result.append(_arglist(tokens))
+
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
+    elif tokens.check(token.OP, "["):
+        result.append(tokens.accept(token.OP, "[", result_token=token.LSQB))
         result.append(_subscriptlist(tokens))
-        
-        result.append(tokens.accept(token.OP, "]", result_token=token.RSQB, error_msg="Expecting: ']'"))
-    elif tokens.peek()[0] == token.OP and tokens.peek()[1] == ".":
-        result.append((token.DOT, "."))
-        tokens.next()
-        
-        result.append(tokens.accept(token.NAME, error_msg="Expecting NAME"))
+        result.append(tokens.accept(token.OP, "]", result_token=token.RSQB))
+    elif tokens.check(token.OP, "."):
+        result.append(tokens.accept(token.OP, ".", result_token=token.DOT))
+        result.append(tokens.accept(token.NAME))
     else:
-        raise syntax_error("Expecting '(', '[' or '.'", tokens.peek())
-    
+        tokens.error("Expecting '(', '[' or '.'")
+
     return result
 
 def _subscriptlist(tokens):
@@ -1691,12 +1483,12 @@ def _subscriptlist(tokens):
         subscriptlist: subscript (',' subscript)* [',']
     """
     result = [symbol.subscriptlist]
-    
+
     result.append(_subscript(tokens))
-    
-    if tokens.peek()[1] == ",":
+
+    if tokens.check(token.OP, ","):
         raise NotImplementedError
-    
+
     return result
 
 def _subscript(tokens):
@@ -1720,12 +1512,12 @@ def _subscript(tokens):
     #
 
     result = [symbol.subscript]
-    
+
     # TODO
     result.append(_test(tokens))
-    
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ":":
-        result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+
+    if tokens.check(token.OP, ":"):
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
 
     return result
 
@@ -1746,23 +1538,15 @@ def _exprlist(tokens):
         exprlist: expr (',' expr)* [',']
     """
     result = [symbol.exprlist]
-    
+
     result.append(_expr(tokens))
 
-    # ',' expr
-    def comma_expr(tokens):
-        result = []
+    while tokens.check(token.OP, ","):
         result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_expr(tokens))
-        return result
 
-    more_expr = matcher(tokens, [comma_expr], optional=True, repeat=True)
-    if more_expr:
-        result = result + more_expr
-    
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-        result.append((token.COMMA, ","))
-        tokens.next()
+    if tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
 
     return result
 
@@ -1774,18 +1558,15 @@ def _testlist(tokens):
         testlist: test (',' test)* [',']
     """
     result = [symbol.testlist]
-    
+
     result.append(_test(tokens))
-    
-    # TODO this is incorrect, needs to be rewritten with matcher
-    while tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-        result.append((token.COMMA, ","))
-        tokens.next()
+
+    while tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_test(tokens))
 
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-        result.append((token.COMMA, ","))
-        tokens.next()
+    if tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
 
     return result
 
@@ -1808,20 +1589,18 @@ def _classdef(tokens):
     """
     result = [symbol.classdef]
 
-    result.append(tokens.accept(token.NAME, "class", error_msg="Expecting: 'class'"))
-    result.append(tokens.accept(token.NAME, error_msg="Expecting class name"))
-    
-    if tokens.peek()[0] == token.OP and tokens.peek()[1] == "(":
-        result.append((token.LPAR, "("))
-        tokens.next()
-        
-        testlist = matcher(tokens, [_testlist], optional=True)
-        if testlist:
-            result.append(testlist)
-        
-        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR, error_msg="Expecting: ')'"))
-    
-    result.append(tokens.accept(token.OP, ":", result_token=token.COLON, error_msg="Expecting: ':'"))
+    result.append(tokens.accept(token.NAME, "class"))
+    result.append(tokens.accept(token.NAME))
+
+    if tokens.check(token.OP, "("):
+        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
+
+        if not tokens.check(token.OP, ")"):
+            result.append(_testlist(tokens))
+
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
+
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
 
     return result
@@ -1835,30 +1614,30 @@ def _arglist(tokens):
                                  |'*' test (',' argument)* [',' '**' test]
                                  |'**' test)
     """
+    # This grammar is *not* left-factored and has to be rewritten as follows
+    # (ε denotes the empty string):
+    #
+    #   arglist: (argument ',')* (argument [',']
+    #                            |'*' test (',' argument)* [',' '**' test]
+    #                            |'**' test)
+    #   <=>
+    #   arglist: (argument ',')* (argument [','])
+    #            |
+    #
     result = [symbol.arglist]
 
-    # argument ','
-    def argument_comma(tokens):
-        result = []
+    # TODO this is so wrong
+    if tokens.check_test():
         result.append(_argument(tokens))
-        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-        return result
-        
-    result = result + matcher(tokens, [argument_comma], repeat=True, optional=True)
-    
-    # argument [',']
-    def option1(tokens):
-        result = []
-        result.append(_argument(tokens))
-        if tokens.peek()[0] == token.OP and tokens.peek()[1] == ",":
-            result.append((token.COMMA, ","))
-            tokens.next()
-        return result
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            if tokens.check_test():
+                result.append(_argument(tokens))
+                if tokens.check(token.OP, ","):
+                    result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
 
     # TODO option2 '*' test (',' argument)* [',' '**' test]
     # TODO option3 '**' test
-
-    result = result + matcher(tokens, [option1])
 
     return result
 
@@ -1880,16 +1659,11 @@ def _argument(tokens):
 
     result.append(_test(tokens))
 
-    # '=' test
-    def equals_test(tokens):
-        result = []
+    if tokens.check(token.NAME, "for"):
+        result.append(_comp_for(tokens))
+    elif tokens.check(token.OP, "="):
         result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
         result.append(_test(tokens))
-        return result
-    
-    option = matcher(tokens, [[_comp_for], equals_test], optional=True)
-    if option:
-        result = result + option
 
     return result
 
@@ -1902,7 +1676,12 @@ def _list_iter(tokens):
     """
     result = [symbol.list_iter]
 
-    result.append(matcher(tokens, [_list_for, _list_if]))
+    if tokens.check(token.NAME, "for"):
+        result.append(_list_for(tokens))
+    elif tokens.check(token.NAME, "if"):
+        result.append(_list_if(tokens))
+    else:
+        tokens.error("Expecting list_for | list_if")
 
     return result
 
@@ -1914,15 +1693,14 @@ def _list_for(tokens):
         list_for: 'for' exprlist 'in' testlist_safe [list_iter]
     """
     result = [symbol.list_for]
-    
-    result.append(tokens.accept(token.NAME, "for", error_msg="Expecting: 'for'"))
+
+    result.append(tokens.accept(token.NAME, "for"))
     result.append(_exprlist(tokens))
     result.append(tokens.accept(token.NAME, "in"))
     result.append(_testlist_safe(tokens))
 
-    list_iter = matcher(tokens, [_list_iter], optional=True)
-    if list_iter:
-        result.append(list_iter)
+    if tokens.check(token.NAME, "for") or tokens.check(token.NAME, "if"):
+        result.append(_list_iter(tokens))
 
     return result
 
@@ -1934,14 +1712,13 @@ def _list_if(tokens):
         list_if: 'if' old_test [list_iter]
     """
     result = [symbol.list_if]
-    
+
     result.append(tokens.accept(token.NAME, "if"))
     result.append(_old_test(tokens))
 
-    list_iter = matcher(tokens, [_list_iter], optional=True)
-    if list_iter:
-        result.append(list_iter)
-       
+    if tokens.check(token.NAME, "for") or tokens.check(token.NAME, "if"):
+        result.append(_list_iter(tokens))
+
     return result
 
 def _comp_iter(tokens):
@@ -1961,8 +1738,8 @@ def _comp_for(tokens):
         comp_for: 'for' exprlist 'in' or_test [comp_iter]
     """
     result = [symbol.comp_for]
-    
-    result.append(tokens.accept(token.NAME, "for", error_msg="Expecting: 'for'"))
+
+    result.append(tokens.accept(token.NAME, "for"))
     result.append(_exprlist(tokens))
     result.append(tokens.accept(token.NAME, "in"))
     result.append(_or_test(tokens))
@@ -2006,226 +1783,88 @@ def _yield_expr(tokens):
         yield_expr: 'yield' [testlist]
     """
     result = [symbol.yield_expr]
-    
-    result.append(tokens.accept(token.NAME, "yield", error_msg="Expecting: 'yield'"))    
-    result.append(matcher(tokens, [_testlist], optional=True))
-    
-    return result
 
-def matcher(tokens, choices, repeat=False, optional=False):
-    """The matcher finds a parse path among multiple choices.
-    
-    The end of a recursion is indicated by a ``SyntaxError``. When a child path has
-    failed, the tokens generator is "rolled back" to the last good position.
+    result.append(tokens.accept(token.NAME, "yield"))
 
-    Args:
-        tokens (TokenIterator): token iterator
-        choices (list): a list of 
-        repeat: repeat a choice (only a single choice possible)
-        optional: matching optional or mandatory (does at least one match need to occur?)
-
-    Returns:
-        list: The matching parse tree element, ``None`` for no matches
-
-    Raises:
-        SyntaxError: Syntax Error
-
-    >>> from pycep.tokenizer import generate_tokens
-    >>> from StringIO import StringIO
-    >>> from pycep.parser import TokenIterator, matcher
-    >>> from pycep.parser import _expr_stmt, _print_stmt, _del_stmt, _testlist,
-    ...     _comp_op, _expr
-
-    Suppose the following example with multiple choices (abbreviated):
-    
-    ::
-
-        small_stmt: (expr_stmt | print_stmt  | del_stmt)
-
-    This would be written as:
-    
-    >>> t1 = TokenIterator(generate_tokens(StringIO('print "Hello, world!"').readline))
-    >>> matcher(t1, [_expr_stmt, _print_stmt, _del_stmt])
-    [272, (1, 'print'), [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (3, '"Hello, world!"')]]]]]]]]]]]]]]]
-
-    Suppose the following example with an optional argument ``testlist``:
-    
-    ::
-    
-        yield_expr: 'yield' [testlist]
-    
-    This would be written as:
-    
-    >>> t2 = TokenIterator(generate_tokens(StringIO("yield 5").readline))
-    >>> t2.next()
-    (1, 'yield', (1, 0), (1, 5), 'yield 5')
-    >>> matcher(t2, [_testlist], optional=True)
-    [327, [304, [305, [306, [307, [308, [310, [311, [312, [313, [314, [315, [316, [317, [318, (2, '5')]]]]]]]]]]]]]]]
-    
-    Suppose the following example with a repetition of the sequence ``comp_op expr``:
-    
-    ::
-
-        comparison: expr (comp_op expr)*
-
-    This would be written as:
-    
-    >>> t3 = TokenIterator(generate_tokens(StringIO("1 < 2").readline))
-    >>> _expr(t3)
-    [310, [311, [312, [313, [314, [315, [316, [317, [318, (2, '1')]]]]]]]]]
-    >>> matcher(t3, [(_comp_op, _expr)], optional=True, repeat=True)
-    [[309, (20, '<')], [310, [311, [312, [313, [314, [315, [316, [317, [318, (2, '2')]]]]]]]]]]
-
-    """
-
-    last_good = tokens.index
-    result, success = None, False
-
-    if repeat:
-        if len(choices) != 1:
-            raise ValueError("Can only repeat a single choice")
-        
-        choice = choices[0]
-        result = []
-       
-        while True:
-            try:
-                # given a sequence, only succeed if the *entire* sequence succeeds
-                if type(choice) in [list, tuple]:
-                    tmp = []
-    
-                    for sequence in choice:
-                        tmp.append(sequence(tokens))
-                    
-                    # all paths were successful -> add to result
-                    result = result + tmp
-                else:
-                    result = result + choice(tokens)
-
-                success = True
-                last_good = tokens.index
-            except SyntaxError:
-                tokens.seek(last_good)
-                break # stop loop
-
-    else:
-        for choice in choices:
-            try:
-                # given a sequence, only succeed if the *entire* sequence succeeds
-                if type(choice) in [list, tuple]:
-                    result = tmp = []
-    
-                    for sequence in choice:
-                        tmp.append(sequence(tokens))
-                    
-                    # all paths were successful -> add to result
-                    result = tmp
-                else:
-                    result = choice(tokens)
-    
-                success = True
-                break # stop iteration
-            except SyntaxError:
-                tokens.seek(last_good)
-
-    if not optional and not success:
-        raise SyntaxError
+    if tokens.check_test():
+        result.append(_testlist(tokens))
 
     return result
 
 class TokenIterator(object):
-    """Wrapper for token generator which adds peeking and seeking.
-    Furthermore, physical line breaks (``tokenize.NL``) and comments
-    (``token.N_TOKENS``) are skipped from the input.
-       
-    >>> from pycep.tokenizer import generate_tokens
-    >>> from StringIO import StringIO
-    >>> from pycep.parser import TokenIterator
-    >>> tokens = TokenIterator(generate_tokens(StringIO('print "Hello, world!"').readline))
-    >>> tokens.peek()
-    (1, 'print', (1, 0), (1, 5), 'print "Hello, world!"')
-    >>> tokens.next()
-    (1, 'print', (1, 0), (1, 5), 'print "Hello, world!"')
-    >>> tokens.next()
-    (3, '"Hello, world!"', (1, 6), (1, 19), 'print "Hello, world!"')
-    >>> tokens.next()
-    (0, '', (2, 0), (2, 0), '')
-    >>> tokens.seek(-1)
-    >>> tokens.peek()
-    (1, 'print', (1, 0), (1, 5), 'print "Hello, world!"')
+    """Wrapper for token generator which allows checking for and accepting
+    tokens. Physical line breaks (``tokenize.NL``) and comments (``token.N_TOKENS``)
+    are skipped from the input.
     """
 
-    def __init__(self, generator):
-        self.index = -1
-        self._values = list(generator)
+    def __init__(self, generator, skip_tokens=(tokenize.NL, token.N_TOKENS)):
+        self._index = -1
+        self._values = [tok for tok in list(generator) if tok[0] not in skip_tokens]
+        self.filename = "<string>"
 
-    def __iter__(self):
-        return self
+    def check(self, token_type, token_name=None, lookahead=1):
+        if self._index + lookahead >= len(self._values):
+            return False
 
-    def next(self):
-        value = self._next()
+        tok = self._values[self._index + lookahead]
 
-        while self._is_skip(value[0]):
-            value = self._next()
+        if tok[0] != token_type:
+            return False
 
-        return value
-    
-    def _next(self):
-        if self.index + 1 < len(self._values):
-            self.index += 1
-            value = self._values[self.index]
-        else:
-            raise StopIteration
+        if token_name:
+            if isinstance(token_name, basestring):
+                if tok[1] != token_name:
+                    return False
+            else:
+                if tok[1] not in token_name:
+                    return False
 
-        return value
-    
-    def peek(self):
-        lookahead = 1
-        value = self._peek(lookahead)
+        return True
 
-        while self._is_skip(value[0]):
-            lookahead += 1
-            value = self._peek(lookahead)
+    # pylint: disable=R0913
+    def accept(self, token_type, token_name=None, result_token=None, result_name=None, error_msg=None):
+        if not error_msg:
+            if not token_name:
+                error_msg = "Expecting %s" % token.tok_name[token_type]
+            else:
+                error_msg = "Expecting '%s'" % token_name
 
-        return value
-        
-    def _peek(self, lookahead):
-        if self.index + lookahead < len(self._values):
-            value = self._values[self.index + lookahead]
-        else:
-            raise StopIteration
-            
-        return value
+        if self._index + 1 >= len(self._values):
+            self.error(error_msg)
 
-    def _is_skip(self, value):
-        return value == tokenize.NL or value == token.N_TOKENS # physical line breaks and comments
+        tok = self._values[self._index + 1]
 
-    def seek(self, index):
-        if index < -1 or index > len(self._values) - 1:
-            raise IndexError("Invalid seek")
-        
-        self.index = index
-    
-    def accept(self, token_type, token_name=None, result_token=None, result_name=None, error_msg=None):    
-        if error_msg:
-            error = syntax_error(error_msg, self.peek())
-        else:
-            error = SyntaxError
-        
-        if self.peek()[0] != token_type:
-            raise error
-            
-        if not token_name is None and (self.peek()[1] != token_name):
-            raise error
+        if tok[0] != token_type:
+            self.error(error_msg)
+
+        if not token_name is None and (tok[1] != token_name):
+            self.error(error_msg)
 
         if result_token is None:
-            result_token = self.peek()[0]
+            result_token = tok[0]
 
         if result_name is None:
-            result_name = self.peek()[1]
-                
+            result_name = tok[1]
+
         result = (result_token, result_name)
-            
-        self.next()
-            
+
+        self._index = self._index + 1
+
         return result
+
+    def error(self, error_msg=None):
+        tok = self._values[self._index]
+        raise SyntaxError(error_msg, (self.filename, tok[2][0], tok[2][1], tok[4]))
+
+    def check_test(self, lookahead=1):
+        """Shorthand notation to check whether next statement is a ``test``"""
+        return self.check(token.NAME, "not", lookahead=lookahead) or \
+            self.check(token.OP, ("+", "-", "~", "(", "[", "{", "`"), lookahead=lookahead) or \
+            self.check(token.NAME, lookahead=lookahead) or \
+            self.check(token.NUMBER, lookahead=lookahead) or \
+            self.check(token.STRING, lookahead=lookahead)
+
+    def check_comp_op(self):
+        """Shorthand notation to check whether next statement is a ``comp_op``"""
+        return self.check(token.OP, ("<", ">", "==", ">=", "<=", "<>", "!=")) or \
+            self.check(token.NAME, ("in", "not", "is"))
