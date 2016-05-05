@@ -119,3 +119,17 @@ g = lambda x: x**2
 
 # Old style test statement / lambda definition
 [ x for x in lambda: True, lambda: False if x() ]
+
+(yield i)
+
+# Backticks are a deprecated notation for repr()
+hello = decorated_class()
+`hello`
+
+myset1 = {1, 2, 3,}
+myset2 = {x for x in range(1, 10) if x % 2 == 0}
+
+mydict1 = {'jack': 4098, 'sape': 4139}
+
+# Dict comprehension
+mydict2 = {x: x**2 for x in (2, 4, 6)}

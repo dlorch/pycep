@@ -1382,8 +1382,10 @@ def _atom(tokens):
     if tokens.check(token.OP, "("):
         result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
 
-        # TODO yield_expr
-        result.append(_testlist_comp(tokens))
+        if tokens.check(token.NAME, "yield"):
+            result.append(_yield_expr(tokens))
+        else:
+            result.append(_testlist_comp(tokens))
 
         result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
     elif tokens.check(token.OP, "["):
@@ -1394,13 +1396,21 @@ def _atom(tokens):
 
         result.append(tokens.accept(token.OP, "]", result_token=token.RSQB))
     elif tokens.check(token.OP, "{"):
-        raise NotImplementedError
+        result.append(tokens.accept(token.OP, "{", result_token=token.LBRACE))
+
+        if not tokens.check(token.OP, "}"):
+            result.append(_dictorsetmaker(tokens))
+
+        result.append(tokens.accept(token.OP, "}", result_token=token.RBRACE))
     elif tokens.check(token.OP, "`"):
-        raise NotImplementedError
+        result.append(tokens.accept(token.OP, "`", result_token=token.BACKQUOTE))
+        result.append(_testlist1(tokens))
+        result.append(tokens.accept(token.OP, "`", result_token=token.BACKQUOTE))
     elif tokens.check(token.NUMBER):
         result.append(tokens.accept(token.NUMBER))
     elif tokens.check(token.NAME):
         if tokens.check(token.NAME, keywords):
+            tokens.accept(token.NAME) # increment token pointer to offending token for correct error message
             raise tokens.error("Keywords cannot appear here")
         result.append(tokens.accept(token.NAME))
     elif tokens.check(token.STRING):
@@ -1616,7 +1626,49 @@ def _dictorsetmaker(tokens):
         dictorsetmaker: ( (test ':' test (comp_for | (',' test ':' test)* [','])) |
                           (test (comp_for | (',' test)* [','])) )
     """
-    raise NotImplementedError
+    # This grammar is *not* left-factored and has to be rewritten as follows
+    # (<=> denotes "if and only if", ε denotes the empty string). Derivation:
+    #
+    #   dictorsetmaker: ( (test ':' test (comp_for | (',' test ':' test)* [','])) |
+    #                     (test (comp_for | (',' test)* [','])) )
+    #   <=>
+    #   dictorsetmaker: ( test (':' test (comp_for | (',' test ':' test)* [','])) |
+    #                          (comp_for | (',' test)* [',']) )
+    #   <=>
+    #   dictorsetmaker: test (':' test (comp_for | (',' test ':' test)* [',']))
+    #                        | comp_for
+    #                        | (',' test)* [','])
+
+    result = [symbol.dictorsetmaker]
+
+    result.append(_test(tokens))
+
+    if tokens.check(token.OP, ":"):
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+        result.append(_test(tokens))
+
+        if tokens.check(token.NAME, "for"):
+            result.append(_comp_for(tokens))
+        elif tokens.check(token.OP, ","):
+            while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+                result.append(_test(tokens))
+                result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+                result.append(_test(tokens))
+
+            if tokens.check(token.OP, ","):
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+    elif tokens.check(token.NAME, "for"):
+        result.append(_comp_for(tokens))
+    elif tokens.check(token.OP, ","):
+        while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_test(tokens))
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
+    return result
 
 def _classdef(tokens):
     """Parse a class definition.
@@ -1820,7 +1872,15 @@ def _testlist1(tokens):
 
         testlist1: test (',' test)*
     """
-    raise NotImplementedError
+    result = [symbol.testlist1]
+
+    result.append(_test(tokens))
+
+    while tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+        result.append(_test(tokens))
+
+    return result
 
 def _encoding_decl(tokens):
     """Parse an encoding declaration.
