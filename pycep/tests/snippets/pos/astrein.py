@@ -116,3 +116,6 @@ g = lambda x: x**2
 
 # List comprehension
 [(x, y) for x in [1,2,3] for y in [3,1,4] if x != y]
+
+# Old style test statement / lambda definition
+[ x for x in lambda: True, lambda: False if x() ]

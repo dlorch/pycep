@@ -1034,7 +1034,13 @@ def _testlist_safe(tokens):
 
     result.append(_old_test(tokens))
 
-    # TODO
+    if tokens.check(token.OP, ","):
+        while tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_old_test(tokens))
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
 
     return result
 
@@ -1047,9 +1053,10 @@ def _old_test(tokens):
     """
     result = [symbol.old_test]
 
-    result.append(_or_test(tokens))
-
-    # TODO
+    if tokens.check(token.NAME, "lambda"):
+        result.append(_old_lambdef(tokens))
+    else:
+        result.append(_or_test(tokens))
 
     return result
 
@@ -1060,7 +1067,17 @@ def _old_lambdef(tokens):
 
         old_lambdef: 'lambda' [varargslist] ':' old_test
     """
-    raise NotImplementedError
+    result = [symbol.old_lambdef]
+
+    result.append(tokens.accept(token.NAME, "lambda"))
+
+    if not tokens.check(token.OP, ":"):
+        result.append(_varargslist(tokens))
+
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+    result.append(_old_test(tokens))
+
+    return result
 
 def _test(tokens):
     """Parse a test statement.
