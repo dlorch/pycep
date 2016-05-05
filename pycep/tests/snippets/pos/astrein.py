@@ -110,3 +110,9 @@ foo << 5 >> 42
 g = lambda x: x**2
 
 5 if foo == 30 else 19
+
+# Generator expression
+(x + y % 2 == 0 for x in range(0, 12) for y in range(4, 30) if x < y if x != 2)
+
+# List comprehension
+[(x, y) for x in [1,2,3] for y in [3,1,4] if x != y]

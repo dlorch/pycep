@@ -362,7 +362,7 @@ def _small_stmt(tokens):
         result.append(_exec_stmt(tokens))
     elif tokens.check(token.NAME, "assert"):
         result.append(_assert_stmt(tokens))
-    elif tokens.check(token.OP, ("+", "-", "~")) or \
+    elif tokens.check(token.OP, ("+", "-", "~", "(", "[", "{", "`")) or \
         tokens.check(token.NUMBER) or tokens.check(token.STRING) or \
         tokens.check(token.NAME): # make sure the "catchall" tokens.check(token.NAME) belongs to the last condition
         result.append(_expr_stmt(tokens))
@@ -1743,16 +1743,25 @@ def _list_if(tokens):
     return result
 
 def _comp_iter(tokens):
-    """Parse a comp iter.
+    """Parse a generator expression.
 
     ::
 
         comp_iter: comp_for | comp_if
     """
-    raise NotImplementedError
+    result = [symbol.comp_iter]
+
+    if tokens.check(token.NAME, "for"):
+        result.append(_comp_for(tokens))
+    elif tokens.check(token.NAME, "if"):
+        result.append(_comp_if(tokens))
+    else:
+        tokens.error("Expecting comp_for | comp_if")
+
+    return result
 
 def _comp_for(tokens):
-    """Parse a comp for.
+    """Parse a for generator expression.
 
     ::
 
@@ -1765,18 +1774,27 @@ def _comp_for(tokens):
     result.append(tokens.accept(token.NAME, "in"))
     result.append(_or_test(tokens))
 
-    # TODO: comp_iter
+    if tokens.check(token.NAME, ("for", "if")):
+        result.append(_comp_iter(tokens))
 
     return result
 
 def _comp_if(tokens):
-    """Parse a comp if.
+    """Parse an if generator expression.
 
     ::
 
         comp_if: 'if' old_test [comp_iter]
     """
-    raise NotImplementedError
+    result = [symbol.comp_if]
+
+    result.append(tokens.accept(token.NAME, "if"))
+    result.append(_old_test(tokens))
+
+    if tokens.check(token.NAME, ("for", "if")):
+        result.append(_comp_iter(tokens))
+
+    return result
 
 def _testlist1(tokens):
     """Parse a testlist1.
