@@ -143,3 +143,12 @@ mydict1 = {'jack': 4098, 'sape': 4139}
 
 # Dict comprehension
 mydict2 = {x: x**2 for x in (2, 4, 6)}
+
+# Ellipsis
+mylist[1:2, ..., 0, ]
+
+# Slices
+mylist[-1]
+mylist[-2:]
+mylist[:-2]
+mylist[::2]

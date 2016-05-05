@@ -1537,8 +1537,13 @@ def _subscriptlist(tokens):
 
     result.append(_subscript(tokens))
 
+    while tokens.check(token.OP, ",") and (tokens.check(token.OP, (".", ":"), lookahead=2) or \
+        tokens.check_test(lookahead=2)):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+        result.append(_subscript(tokens))
+
     if tokens.check(token.OP, ","):
-        raise NotImplementedError
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
 
     return result
 
@@ -1561,14 +1566,35 @@ def _subscript(tokens):
     #   subscript: '.' '.' '.' | test [rest] | rest
     #   rest:      ':' [test] [slicep]
     #
-
     result = [symbol.subscript]
 
-    # TODO
-    result.append(_test(tokens))
+    if tokens.check(token.OP, "."):
+        result.append(tokens.accept(token.OP, ".", result_token=token.DOT))
+        result.append(tokens.accept(token.OP, ".", result_token=token.DOT))
+        result.append(tokens.accept(token.OP, ".", result_token=token.DOT))
+    elif tokens.check_test():
+        result.append(_test(tokens))
 
-    if tokens.check(token.OP, ":"):
+        if tokens.check(token.OP, ":"):
+            result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+
+            if tokens.check_test():
+                result.append(_test(tokens))
+
+            if tokens.check(token.OP, ":"):
+                result.append(_sliceop(tokens))
+
+    elif tokens.check(token.OP, ":"):
         result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+
+        if tokens.check_test():
+            result.append(_test(tokens))
+
+        if tokens.check(token.OP, ":"):
+            result.append(_sliceop(tokens))
+
+    else:
+        tokens.error()
 
     return result
 
@@ -1579,7 +1605,14 @@ def _sliceop(tokens):
 
         sliceop: ':' [test]
     """
-    raise NotImplementedError
+    result = [symbol.sliceop]
+
+    result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+
+    if tokens.check_test():
+        result.append(_test(tokens))
+
+    return result
 
 def _exprlist(tokens):
     """Parse an expression list.
