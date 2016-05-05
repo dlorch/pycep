@@ -833,8 +833,11 @@ def _if_stmt(tokens):
     result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
     result.append(_suite(tokens))
 
-    if tokens.check(token.NAME, "elif"):
-        raise NotImplementedError
+    while tokens.check(token.NAME, "elif"):
+        result.append(tokens.accept(token.NAME, "elif"))
+        result.append(_test(tokens))
+        result.append(tokens.accept(token.OP, ":", result_token=token.COLON))
+        result.append(_suite(tokens))
 
     if tokens.check(token.NAME, "else"):
         result.append(tokens.accept(token.NAME, "else"))
