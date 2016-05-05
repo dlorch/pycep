@@ -1220,7 +1220,9 @@ def _and_expr(tokens):
     result = [symbol.and_expr]
     result.append(_shift_expr(tokens))
 
-    # TODO
+    while tokens.check(token.OP, "&"):
+        result.append(tokens.accept(token.OP, "&", result_token=token.AMPER))
+        result.append(_shift_expr(tokens))
 
     return result
 
