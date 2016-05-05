@@ -1204,7 +1204,9 @@ def _xor_expr(tokens):
     result = [symbol.xor_expr]
     result.append(_and_expr(tokens))
 
-    # TODO ^ and_exr
+    while tokens.check(token.OP, "^"):
+        result.append(tokens.accept(token.OP, "^", result_token=token.CIRCUMFLEX))
+        result.append(_and_expr(tokens))
 
     return result
 
