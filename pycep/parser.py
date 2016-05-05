@@ -1236,7 +1236,13 @@ def _shift_expr(tokens):
     result = [symbol.shift_expr]
     result.append(_arith_expr(tokens))
 
-    # TODO
+    while tokens.check(token.OP, "<<") or tokens.check(token.OP, ">>"):
+        if tokens.check(token.OP, "<<"):
+            result.append(tokens.accept(token.OP, "<<", result_token=token.LEFTSHIFT))
+        elif tokens.check(token.OP, ">>"):
+            result.append(tokens.accept(token.OP, ">>", result_token=token.RIGHTSHIFT))
+
+        result.append(_arith_expr(tokens))
 
     return result
 
