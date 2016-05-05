@@ -1838,10 +1838,10 @@ class TokenIterator(object):
         tok = self._values[self._index + 1]
 
         if tok[0] != token_type:
-            self.error(error_msg)
+            self.error(error_msg, tok=tok)
 
         if not token_name is None and (tok[1] != token_name):
-            self.error(error_msg)
+            self.error(error_msg, tok=tok)
 
         if result_token is None:
             result_token = tok[0]
@@ -1855,9 +1855,16 @@ class TokenIterator(object):
 
         return result
 
-    def error(self, error_msg=None):
-        tok = self._values[self._index]
-        raise SyntaxError(error_msg, (self.filename, tok[2][0], tok[2][1], tok[4]))
+    def error(self, error_msg=None, tok=None):
+        if not tok:
+            tok = self._values[self._index]
+
+        # the second argument to SyntaxError is a 4-tuple with:
+        # 1. the filename
+        # 2. line number (indexes starting at 1)
+        # 3. column number (indexes starting at 1)
+        # 4. line of code (string)
+        raise SyntaxError(error_msg, (self.filename, tok[2][0], tok[2][1] + 1, tok[4]))
 
     def check_test(self, lookahead=1):
         """Shorthand notation to check whether next statement is a ``test``"""
