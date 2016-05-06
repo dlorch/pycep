@@ -259,27 +259,98 @@ def _varargslist(tokens):
                       ('*' NAME [',' '**' NAME] | '**' NAME) |
                       fpdef ['=' test] (',' fpdef ['=' test])* [','])
     """
+    # This grammar is *not* left-factored and has to be rewritten as follows
+    # (<=> denotes "if and only if", ε denotes the empty string). Derivation:
+    #
+    #   varargslist: ((fpdef ['=' test] ',')*
+    #                 ('*' NAME [',' '**' NAME] | '**' NAME) |
+    #                 fpdef ['=' test] (',' fpdef ['=' test])* [','])
+    #   <=>
+    #   varargslist: ((fpdef ['=' test] ',')*
+    #                 ('*' NAME [',' '**' NAME] | '**' NAME) |
+    #                 fpdef ['=' test] (',' fpdef ['=' test])* [','])
+    #   <=>
+    #   varargslist: ((fpdef ['=' test] ',')+ ('*' NAME [',' '**' NAME] | '**' NAME) |
+    #                 ('*' NAME [',' '**' NAME] | '**' NAME) |
+    #                 fpdef ['=' test] (',' fpdef ['=' test])* [','])
+    #   <=>
+    #   varargslist: ((fpdef ['=' test] ',')+ ('*' NAME [',' '**' NAME] | '**' NAME) |
+    #                 '*' NAME [',' '**' NAME] |
+    #                 '**' NAME |
+    #                 fpdef ['=' test] (',' fpdef ['=' test])* [','])
+    #   <=>
+    #   varargslist: (fpdef ['=' test] ',' (fpdef ['=' test] ',')* ('*' NAME [',' '**' NAME] | '**' NAME) |
+    #                 '*' NAME [',' '**' NAME] |
+    #                 '**' NAME |
+    #                 fpdef ['=' test] (',' fpdef ['=' test])* [','])
+    #   <=>
+    #   varargslist: (fpdef ['=' test] (',' fpdef ['=' test])* ',' ('*' NAME [',' '**' NAME] | '**' NAME) |
+    #                 '*' NAME [',' '**' NAME] |
+    #                 '**' NAME |
+    #                 fpdef ['=' test] (',' fpdef ['=' test])* [','])
+    #   <=>
+    #   varargslist: (fpdef ['=' test] (',' fpdef ['=' test])* ([','] | ',' ('*' NAME [',' '**' NAME] | '**' NAME)) |
+    #                 '*' NAME [',' '**' NAME] |
+    #                 '**' NAME)
+    #   <=>
+    #   varargslist: (fpdef ['=' test] (',' fpdef ['=' test])* (ε | ',' | ',' ('*' NAME [',' '**' NAME] | '**' NAME)) |
+    #                 '*' NAME [',' '**' NAME] |
+    #                 '**' NAME)
+    #   <=>
+    #   varargslist: (fpdef ['=' test] (',' fpdef ['=' test])* (ε | ',' ['*' NAME [',' '**' NAME] | '**' NAME]) |
+    #                 '*' NAME [',' '**' NAME] |
+    #                 '**' NAME)
+    #
     result = [symbol.varargslist]
 
-    # TODO this grammar is not left-factored and needs to be rewritten
-    # TODO the implementation below is incomplete
-
-    result.append(_fpdef(tokens))
-
-    if tokens.check(token.OP, "="):
-        result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
-        result.append(_test(tokens))
-
-    while tokens.check(token.OP, ","):
-        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+    if tokens.check(token.NAME) or tokens.check(token.OP, "("):
         result.append(_fpdef(tokens))
 
         if tokens.check(token.OP, "="):
             result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
             result.append(_test(tokens))
 
-    if tokens.check(token.OP, ","):
-        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+        while tokens.check(token.OP, ",") and tokens.check(token.NAME, lookahead=2) or \
+            tokens.check(token.OP, "(", lookahead=2):
+
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_fpdef(tokens))
+
+            if tokens.check(token.OP, "="):
+                result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
+                result.append(_test(tokens))
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
+            if tokens.check(token.OP, "*"):
+                result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
+                result.append(tokens.accept(token.NAME))
+
+                if tokens.check(token.OP, ","):
+                    result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+                    result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+                    result.append(tokens.accept(token.NAME))
+
+            elif tokens.check(token.OP, "**"):
+                result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+                result.append(tokens.accept(token.NAME))
+
+    elif tokens.check(token.OP, "*"):
+        result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
+        result.append(tokens.accept(token.NAME))
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+            result.append(tokens.accept(token.NAME))
+
+    elif tokens.check(token.OP, "**"):
+        result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+        result.append(tokens.accept(token.NAME))
+
+    else:
+        tokens.error()
 
     return result
 
@@ -295,9 +366,9 @@ def _fpdef(tokens):
     if tokens.check(token.NAME):
         result.append(tokens.accept(token.NAME))
     elif tokens.check(token.OP, "("):
-        result.append(tokens.accept(token.OP, "("))
+        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
         result.append(_fplist(tokens))
-        result.append(tokens.accept(token.OP, ")"))
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
     else:
         tokens.error("Expecting NAME | '(' fplist ')'")
 
@@ -310,7 +381,20 @@ def _fplist(tokens):
 
         fplist: fpdef (',' fpdef)* [',']
     """
-    raise NotImplementedError
+    result = [symbol.fplist]
+
+    result.append(_fpdef(tokens))
+
+    while tokens.check(token.OP, ",")  and tokens.check(token.NAME, lookahead=2) or \
+            tokens.check(token.OP, "(", lookahead=2):
+
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+        result.append(_fpdef(tokens))
+
+    if tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
+    return result
 
 def _stmt(tokens):
     """Parse a statement.

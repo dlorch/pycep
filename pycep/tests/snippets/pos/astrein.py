@@ -167,3 +167,12 @@ from . import b
 from .. import *
 from ..b.c import q as r
 from ...c.d import (q as r, x as y, )
+
+def f(a, b, c=12,): pass
+def g(a, *b, **c): pass
+def h(a=12, **b): pass
+def i(*a): pass
+def j((a, (c, d), ) = None): pass
+
+# valid according to the grammar
+def x(a=12, b): pass
