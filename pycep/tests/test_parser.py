@@ -73,6 +73,11 @@ class TestParser(unittest.TestCase):
         self.assertEquals(parser.suite(source).totuple(),
             pycep.parser.suite(source, totuple=True))
 
+    def test_empty_file(self):
+        source = open(path.join(SNIPPETS, "pos", "empty.py")).read()
+        self.assertEquals(parser.suite(source).totuple(),
+            pycep.parser.suite(source, totuple=True))
+
     def test_eval_input(self):
         code = "x+1"
         self.assertEquals(parser.expr(code).totuple(),

@@ -137,9 +137,10 @@ def _file_input(tokens):
     except StopIteration:
         pass # raise "Expecting ENDMARKER" in next block
 
-    # No trailing NEWLINE defined in grammar, but Python's parser always
-    # appends it, thus imitate this behavior
-    result.append((token.NEWLINE, ""))
+    # No trailing NEWLINE defined in grammar, but Python's parser appends it,
+    # if the file is not empty. Imitate this behavior
+    if len(result) > 1:
+        result.append((token.NEWLINE, ""))
 
     result.append(tokens.accept(token.ENDMARKER, result_name=""))
 
