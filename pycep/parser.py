@@ -1571,7 +1571,7 @@ def _atom(tokens):
 
         if tokens.check(token.NAME, "yield"):
             result.append(_yield_expr(tokens))
-        else:
+        elif tokens.check_test():
             result.append(_testlist_comp(tokens))
 
         result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
@@ -1604,7 +1604,7 @@ def _atom(tokens):
         while tokens.check(token.STRING):
             result.append(tokens.accept(token.STRING))
     else:
-        tokens.error("Expecting: ('(' [yield_expr|testlist_comp] ')' | "
+        tokens.error("Expecting ('(' [yield_expr|testlist_comp] ')' | "
                      "'[' [listmaker] ']' | "
                      "'{' [dictorsetmaker] '}' | "
                      "'`' testlist1 '`' | "

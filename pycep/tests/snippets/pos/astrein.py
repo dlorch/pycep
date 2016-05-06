@@ -9,7 +9,8 @@ def decorated_func():
 
 @classdecorator
 class decorated_class():
-    pass
+    def __init__(self, installed_apps=()):
+        pass
 
 for num in range(2, 10):
     if num % 2 == 0:
