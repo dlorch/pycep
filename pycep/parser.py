@@ -1725,7 +1725,7 @@ def _subscript(tokens):
         subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
     """
     # This grammar is *not* left-factored and has to be rewritten as follows
-    # (<=> denotes "if and only if"). Derivation:
+    # (<=> denotes "if and only if", ε denotes the empty string). Derivation:
     #
     #   subscript: '.' '.' '.' | test | [test] ':' [test] [sliceop]
     #   <=>
@@ -1841,10 +1841,10 @@ def _dictorsetmaker(tokens):
     #   dictorsetmaker: ( test (':' test (comp_for | (',' test ':' test)* [','])) |
     #                          (comp_for | (',' test)* [',']) )
     #   <=>
-    #   dictorsetmaker: test (':' test (comp_for | (',' test ':' test)* [',']))
-    #                        | comp_for
-    #                        | (',' test)* [','])
-
+    #   dictorsetmaker: ( test (':' test (comp_for | (',' test ':' test)* [',']))
+    #                          | comp_for
+    #                          | (',' test)* [',']) )
+    #
     result = [symbol.dictorsetmaker]
 
     result.append(_test(tokens))
@@ -2034,12 +2034,11 @@ def _argument(tokens):
         argument: test [comp_for] | test '=' test
     """
     # This grammar is *not* left-factored and has to be rewritten as follows
-    # (ε denotes the empty string):
+    # (<=> denotes "if and only if", ε denotes the empty string). Derivation:
     #
     #   argument: test option
     #   option:   ε | comp_for | '=' test
     #
-
     result = [symbol.argument]
 
     result.append(_test(tokens))
