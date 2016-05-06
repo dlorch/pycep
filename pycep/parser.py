@@ -1843,7 +1843,7 @@ def _testlist(tokens):
 
     result.append(_test(tokens))
 
-    while tokens.check(token.OP, ","):
+    while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
         result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_test(tokens))
 

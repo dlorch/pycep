@@ -204,3 +204,5 @@ a = "implicit" "string concatenation" "is probably done in the analyzer"
 
 g("arg1 on this line"
   "arg2 on this line")
+
+count, = cursor.fetchone()
