@@ -193,6 +193,9 @@ def parrot(voltage, state='a stiff', action='voom'):
 d = {"voltage": "four million", "state": "bleedin' demised", "action": "VOOM"}
 parrot(**d)
 
+f(a, *b, **c)
+f(a, **b)
+
 a = "implicit" "string concatenation" "is probably done in the analyzer"
 
 g("arg1 on this line"

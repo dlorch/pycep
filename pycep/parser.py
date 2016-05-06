@@ -1958,31 +1958,20 @@ def _arglist(tokens):
     #            | '*' test (',' argument)* [',' '**' test]
     #            | '**' test)
     #            | argument (',' argument)* [',']
-    #            | argument (',' argument)* [','] '*' test (',' argument)* [',' '**' test]
-    #            | argument (',' argument)* [','] '**' test)
+    #            | argument (',' argument)* ',' '*' test (',' argument)* [',' '**' test]
+    #            | argument (',' argument)* ',' '**' test)
     #   <=>
     #   arglist: (argument [',']
     #            | '*' test (',' argument)* [',' '**' test]
     #            | '**' test)
-    #            | argument (',' argument)* [','] ( ε
-    #                                             | '*' test (',' argument)* [',' '**' test]
-    #                                             |'**' test) )
+    #            | argument (',' argument)* ( [',']
+    #                                       | ',' '*' test (',' argument)* [',' '**' test]
+    #                                       | ',' '**' test) )
     #   <=>
-    #   arglist: (argument (ε | ',' | (',' argument)* [','] ( ε
-    #                                                       | '*' test (',' argument)* [',' '**' test]
-    #                                                       | '**' test)
-    #            | '*' test (',' argument)* [',' '**' test]
-    #            | '**' test) )
-    #   <=>
-    #   arglist: (argument (ε | ',' | (ε | ',' | (',' argument)+ [',']) ( ε
-    #                                                                   | '*' test (',' argument)* [',' '**' test]
-    #                                                                   | '**' test)
-    #            | '*' test (',' argument)* [',' '**' test]
-    #            | '**' test) )
-    #   <=>
-    #   arglist: (argument (ε | ',' | (',' argument)+ [','] ( ε
-    #                                                       | '*' test (',' argument)* [',' '**' test]
-    #                                                       | '**' test)
+    #   arglist: (argument ( [',']
+    #                      | (',' argument)* ( [',']
+    #                                        | ',' '*' test (',' argument)* [',' '**' test]
+    #                                        | ',' '**' test) )
     #            | '*' test (',' argument)* [',' '**' test]
     #            | '**' test) )
     #
@@ -1991,30 +1980,28 @@ def _arglist(tokens):
     if tokens.check_test():
         result.append(_argument(tokens))
 
-        if tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+        while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_argument(tokens))
+
+        if tokens.check(token.OP, ",") and tokens.check(token.OP, ("*"), lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
+            result.append(_test(tokens))
+
             while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
                 result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
                 result.append(_argument(tokens))
 
             if tokens.check(token.OP, ","):
                 result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-
-            if tokens.check(token.OP, "*"):
-                result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
-                result.append(_test(tokens))
-
-                while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
-                    result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-                    result.append(_argument(tokens))
-
-                if tokens.check(token.OP, ","):
-                    result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-                    result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
-                    result.append(_test(tokens))
-
-            elif tokens.check(token.OP, "**"):
                 result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
                 result.append(_test(tokens))
+
+        elif tokens.check(token.OP, ",") and tokens.check(token.OP, ("**"), lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+            result.append(_test(tokens))
 
         elif tokens.check(token.OP, ","):
             result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
