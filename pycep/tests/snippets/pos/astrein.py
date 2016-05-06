@@ -26,6 +26,10 @@ elif x == 1:
 else:
     print 'More'
 
+if x < 0: print "smaller"
+elif x > 0: print "bigger"
+else: print "zero"
+
 for x in [1, 2, 3]:
     pass
 del x

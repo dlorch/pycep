@@ -1085,7 +1085,7 @@ def _suite(tokens):
 
         result.append(tokens.accept(token.DEDENT, result_name=""))
     else:
-        raise NotImplementedError
+        result.append(_simple_stmt(tokens))
 
     return result
 
