@@ -9,6 +9,15 @@ PyCep - Python Inception
 study project to teach [myself](https://github.com/dlorch) about writing
 interpreters.
 
+Design Goals
+------------
+
+When writing PyCep, following design goals were kept in mind:
+
+- PyCep should be fully language-compliant with CPython
+- PyCep should use easy to understand concepts, patterns and algorithms rather than complicated ones
+- PyCep should not rely on language-specific constructs of the host interpreter (CPython)
+  
 Documentation
 -------------
 
