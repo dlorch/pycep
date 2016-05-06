@@ -77,16 +77,25 @@ def suite(source, totuple=False):
     result = _file_input(tokens)
 
     if totuple:
-        # recursively convert list-of-lists to tuples-of-tuples
-        def listit(tup):
-            if isinstance(tup, (list, tuple)):
-                return tuple([listit(el) for el in tup])
-            else:
-                return tup
-
         return listit(result)
     else:
         return parser.sequence2st(result)
+
+def expr(source, totuple=False):
+    tokens = TokenIterator(pycep.tokenizer.generate_tokens(StringIO(source).readline))
+    result = _eval_input(tokens)
+
+    if totuple:
+        return listit(result)
+    else:
+        return parser.sequence2st(result)
+
+def listit(tup):
+    """Recursively convert list-of-lists to tuples-of-tuples"""
+    if isinstance(tup, (list, tuple)):
+        return tuple([listit(el) for el in tup])
+    else:
+        return tup
 
 def _single_input(tokens):
     """Parse a single input.
@@ -130,7 +139,21 @@ def _eval_input(tokens):
 
         eval_input: testlist NEWLINE* ENDMARKER
     """
-    raise NotImplementedError
+    result = [symbol.eval_input]
+
+    result.append(_testlist(tokens))
+
+    if tokens.check(token.NEWLINE):
+        while tokens.check(token.NEWLINE):
+            result.append(tokens.accept(token.NEWLINE, ""))
+    else:
+        # Python's parser always appends a trailing NEWLINE, even if it is
+        # omitted from the input. Imitate this behavior.
+        result.append((token.NEWLINE, ""))
+
+    result.append(tokens.accept(token.ENDMARKER, ""))
+
+    return result
 
 def _decorator(tokens):
     """Parse a decorator.
