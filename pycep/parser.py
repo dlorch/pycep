@@ -354,7 +354,7 @@ def _small_stmt(tokens):
         tokens.check(token.NAME, "return") or tokens.check(token.NAME, "raise") or \
         tokens.check(token.NAME, "yield"):
         result.append(_flow_stmt(tokens))
-    elif tokens.check(token.NAME, "import"):
+    elif tokens.check(token.NAME, ("import", "from")):
         result.append(_import_stmt(tokens))
     elif tokens.check(token.NAME, "global"):
         result.append(_global_stmt(tokens))
@@ -635,8 +635,12 @@ def _import_stmt(tokens):
     """
     result = [symbol.import_stmt]
 
-    # TODO
-    result.append(_import_name(tokens))
+    if tokens.check(token.NAME, "import"):
+        result.append(_import_name(tokens))
+    elif tokens.check(token.NAME, "from"):
+        result.append(_import_from(tokens))
+    else:
+        tokens.error("Expecting import_name | import_from")
 
     return result
 
@@ -662,7 +666,44 @@ def _import_from(tokens):
         import_from: ('from' ('.'* dotted_name | '.'+)
                       'import' ('*' | '(' import_as_names ')' | import_as_names))
     """
-    raise NotImplementedError
+    # This grammar is *not* left-factored and has to be rewritten as follows
+    # (<=> denotes "if and only if", ε denotes the empty string). Derivation:
+    #
+    #   import_from: ('from' ('.'* dotted_name | '.'+)
+    #                 'import' ('*' | '(' import_as_names ')' | import_as_names))
+    #   <=>
+    #   import_from: ('from' ( dotted_name | '.'+ (dotted_name | ε) )
+    #                 'import' ('*' | '(' import_as_names ')' | import_as_names))
+    #
+    result = [symbol.import_from]
+
+    result.append(tokens.accept(token.NAME, "from"))
+
+    if tokens.check(token.NAME):
+        result.append(_dotted_name(tokens))
+    else:
+        result.append(tokens.accept(token.OP, ".", result_token=token.DOT))
+
+        while tokens.check(token.OP, "."):
+            result.append(tokens.accept(token.OP, ".", result_token=token.DOT))
+
+        if tokens.check(token.NAME) and not tokens.check(token.NAME, "import"):
+            result.append(_dotted_name(tokens))
+
+    result.append(tokens.accept(token.NAME, "import"))
+
+    if tokens.check(token.OP, "*"):
+        result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
+    elif tokens.check(token.OP, "("):
+        result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
+        result.append(_import_as_names(tokens))
+        result.append(tokens.accept(token.OP, ")", result_token=token.RPAR))
+    elif tokens.check(token.NAME):
+        result.append(_import_as_names(tokens))
+    else:
+        tokens.error("Expecting ('*' | '(' import_as_names ')' | import_as_names)")
+
+    return result
 
 def _import_as_name(tokens):
     """Parse an import as names.
@@ -671,7 +712,15 @@ def _import_as_name(tokens):
 
         import_as_name: NAME ['as' NAME]
     """
-    raise NotImplementedError
+    result = [symbol.import_as_name]
+
+    result.append(tokens.accept(token.NAME))
+
+    if tokens.check(token.NAME, "as"):
+        result.append(tokens.accept(token.NAME, "as"))
+        result.append(tokens.accept(token.NAME))
+
+    return result
 
 def _dotted_as_name(tokens):
     """Parse a dotted as name.
@@ -685,7 +734,8 @@ def _dotted_as_name(tokens):
     result.append(_dotted_name(tokens))
 
     if tokens.check(token.NAME, "as"):
-        raise NotImplementedError
+        result.append(tokens.accept(token.NAME, "as"))
+        result.append(tokens.accept(token.NAME))
 
     return result
 
@@ -696,7 +746,18 @@ def _import_as_names(tokens):
 
         import_as_names: import_as_name (',' import_as_name)* [',']
     """
-    raise NotImplementedError
+    result = [symbol.import_as_names]
+
+    result.append(_import_as_name(tokens))
+
+    while tokens.check(token.OP, ",") and tokens.check(token.NAME, lookahead=2):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+        result.append(_import_as_name(tokens))
+
+    if tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
+    return result
 
 def _dotted_as_names(tokens):
     """Parse dotted as names.
@@ -709,8 +770,9 @@ def _dotted_as_names(tokens):
 
     result.append(_dotted_as_name(tokens))
 
-    if tokens.check(token.OP, ","):
-        raise NotImplementedError
+    while tokens.check(token.OP, ","):
+        result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+        result.append(_dotted_as_name(tokens))
 
     return result
 
@@ -725,8 +787,9 @@ def _dotted_name(tokens):
 
     result.append(tokens.accept(token.NAME))
 
-    if tokens.check(token.OP, "."):
-        raise NotImplementedError
+    while tokens.check(token.OP, "."):
+        result.append(tokens.accept(token.OP, ".", result_token=token.DOT))
+        result.append(tokens.accept(token.NAME))
 
     return result
 

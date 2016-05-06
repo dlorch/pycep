@@ -152,3 +152,14 @@ mylist[-1]
 mylist[-2:]
 mylist[:-2]
 mylist[::2]
+
+import a
+import a.b
+import a.b.c, d.e.f
+
+from a import b
+from a.z import b as c
+from . import b
+from .. import *
+from ..b.c import q as r
+from ...c.d import (q as r, x as y, )
