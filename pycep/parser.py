@@ -324,8 +324,8 @@ def _varargslist(tokens):
             result.append(tokens.accept(token.OP, "=", result_token=token.EQUAL))
             result.append(_test(tokens))
 
-        while tokens.check(token.OP, ",") and tokens.check(token.NAME, lookahead=2) or \
-            tokens.check(token.OP, "(", lookahead=2):
+        while tokens.check(token.OP, ",") and (tokens.check(token.NAME, lookahead=2) or \
+            tokens.check(token.OP, "(", lookahead=2)):
 
             result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
             result.append(_fpdef(tokens))

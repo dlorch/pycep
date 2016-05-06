@@ -125,6 +125,8 @@ foo << 5 >> 42
 
 g = lambda x: x**2
 
+lambda obj: (obj._get_pk_val(), obj.__class__)
+
 5 if foo == 30 else 19
 
 # Generator expression
