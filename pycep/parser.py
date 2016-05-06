@@ -1911,29 +1911,118 @@ def _arglist(tokens):
                                  |'**' test)
     """
     # This grammar is *not* left-factored and has to be rewritten as follows
-    # (ε denotes the empty string):
+    # (<=> denotes "if and only if", ε denotes the empty string). Derivation:
     #
     #   arglist: (argument ',')* (argument [',']
     #                            |'*' test (',' argument)* [',' '**' test]
     #                            |'**' test)
     #   <=>
-    #   arglist: (argument ',')* (argument [','])
-    #            |
+    #   arglist: (argument ',')* (argument [',']
+    #                            |'*' test (',' argument)* [',' '**' test]
+    #                            |'**' test)
+    #   <=>
+    #   arglist: ( ε | (argument ',')+ ) (argument [',']
+    #                                    |'*' test (',' argument)* [',' '**' test]
+    #                                    |'**' test)
+    #   <=>
+    #   arglist: (argument [',']
+    #            | '*' test (',' argument)* [',' '**' test]
+    #            | '**' test)
+    #            | (argument ',')+ argument [',']
+    #            | (argument ',')+ '*' test (',' argument)* [',' '**' test]
+    #            | (argument ',')+ '**' test)
+    #   <=>
+    #   arglist: (argument [',']
+    #            | '*' test (',' argument)* [',' '**' test]
+    #            | '**' test)
+    #            | argument ',' (argument ',')* argument [',']
+    #            | argument ',' (argument ',')* '*' test (',' argument)* [',' '**' test]
+    #            | argument ',' (argument ',')* '**' test)
+    #   <=>
+    #   arglist: (argument [',']
+    #            | '*' test (',' argument)* [',' '**' test]
+    #            | '**' test)
+    #            | argument (',' argument)* [',']
+    #            | argument (',' argument)* [','] '*' test (',' argument)* [',' '**' test]
+    #            | argument (',' argument)* [','] '**' test)
+    #   <=>
+    #   arglist: (argument [',']
+    #            | '*' test (',' argument)* [',' '**' test]
+    #            | '**' test)
+    #            | argument (',' argument)* [','] ( ε
+    #                                             | '*' test (',' argument)* [',' '**' test]
+    #                                             |'**' test) )
+    #   <=>
+    #   arglist: (argument (ε | ',' | (',' argument)* [','] ( ε
+    #                                                       | '*' test (',' argument)* [',' '**' test]
+    #                                                       | '**' test)
+    #            | '*' test (',' argument)* [',' '**' test]
+    #            | '**' test) )
+    #   <=>
+    #   arglist: (argument (ε | ',' | (ε | ',' | (',' argument)+ [',']) ( ε
+    #                                                                   | '*' test (',' argument)* [',' '**' test]
+    #                                                                   | '**' test)
+    #            | '*' test (',' argument)* [',' '**' test]
+    #            | '**' test) )
+    #   <=>
+    #   arglist: (argument (ε | ',' | (',' argument)+ [','] ( ε
+    #                                                       | '*' test (',' argument)* [',' '**' test]
+    #                                                       | '**' test)
+    #            | '*' test (',' argument)* [',' '**' test]
+    #            | '**' test) )
     #
     result = [symbol.arglist]
 
-    # TODO this is so wrong
     if tokens.check_test():
         result.append(_argument(tokens))
-        if tokens.check(token.OP, ","):
-            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
-            if tokens.check_test():
+
+        if tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+            while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
                 result.append(_argument(tokens))
+
+            if tokens.check(token.OP, ","):
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
+            if tokens.check(token.OP, "*"):
+                result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
+                result.append(_test(tokens))
+
+                while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+                    result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+                    result.append(_argument(tokens))
+
                 if tokens.check(token.OP, ","):
                     result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+                    result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+                    result.append(_test(tokens))
 
-    # TODO option2 '*' test (',' argument)* [',' '**' test]
-    # TODO option3 '**' test
+            elif tokens.check(token.OP, "**"):
+                result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+                result.append(_test(tokens))
+
+        elif tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+
+    elif tokens.check(token.OP, "*"):
+        result.append(tokens.accept(token.OP, "*", result_token=token.STAR))
+        result.append(_test(tokens))
+
+        while tokens.check(token.OP, ",") and tokens.check_test(lookahead=2):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(_argument(tokens))
+
+        if tokens.check(token.OP, ","):
+            result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
+            result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+            result.append(_test(tokens))
+
+    elif tokens.check(token.OP, "**"):
+        result.append(tokens.accept(token.OP, "**", result_token=token.DOUBLESTAR))
+        result.append(_test(tokens))
+
+    else:
+        tokens.error()
 
     return result
 

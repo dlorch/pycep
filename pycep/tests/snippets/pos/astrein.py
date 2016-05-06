@@ -3,6 +3,7 @@
 @my_decorator
 @another_decorator('/login', methods=['GET', 'POST'])
 @third_decorator()
+@fourth_decorator()
 def decorated_func():
     return 5
 
@@ -176,3 +177,18 @@ def j((a, (c, d), ) = None): pass
 
 # valid according to the grammar
 def x(a=12, b): pass
+
+divide(5, 2, )
+
+# call with arguments unpacked from a list
+args = [3, 6]
+range(*args) 
+
+# dictionaries can deliver keyword arguments with the **-operator
+def parrot(voltage, state='a stiff', action='voom'):
+    print "-- This parrot wouldn't", action,
+    print "if you put", voltage, "volts through it.",
+    print "E's", state, "!"
+
+d = {"voltage": "four million", "state": "bleedin' demised", "action": "VOOM"}
+parrot(**d)
