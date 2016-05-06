@@ -104,7 +104,20 @@ def _single_input(tokens):
 
         single_input: NEWLINE | simple_stmt | compound_stmt NEWLINE
     """
-    raise NotImplementedError
+    result = [symbol.single_input]
+
+    if tokens.check(token.NEWLINE):
+        result.append(tokens.accept(token.NEWLINE, ""))
+
+    elif tokens.check(token.NAME, ("if", "while", "for", "try", "with", "def", "class")) or \
+        tokens.check(token.OP, "@"):
+
+        result.append(_compound_stmt(tokens))
+        result.append(tokens.accept(token.NEWLINE, "", result_name=""))
+    else:
+        result.append(_simple_stmt(tokens))
+
+    return result
 
 def _file_input(tokens):
     """Parse a module or sequence of command read from an input file.
@@ -145,13 +158,13 @@ def _eval_input(tokens):
 
     if tokens.check(token.NEWLINE):
         while tokens.check(token.NEWLINE):
-            result.append(tokens.accept(token.NEWLINE, ""))
+            result.append(tokens.accept(token.NEWLINE, "", result_name=""))
     else:
         # Python's parser always appends a trailing NEWLINE, even if it is
         # omitted from the input. Imitate this behavior.
         result.append((token.NEWLINE, ""))
 
-    result.append(tokens.accept(token.ENDMARKER, ""))
+    result.append(tokens.accept(token.ENDMARKER, "", result_name=""))
 
     return result
 
