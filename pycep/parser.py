@@ -1601,7 +1601,8 @@ def _atom(tokens):
             raise tokens.error("Keywords cannot appear here")
         result.append(tokens.accept(token.NAME))
     elif tokens.check(token.STRING):
-        result.append(tokens.accept(token.STRING))
+        while tokens.check(token.STRING):
+            result.append(tokens.accept(token.STRING))
     else:
         tokens.error("Expecting: ('(' [yield_expr|testlist_comp] ')' | "
                      "'[' [listmaker] ']' | "
