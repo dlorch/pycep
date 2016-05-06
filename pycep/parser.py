@@ -6,6 +6,7 @@ import parser
 import token
 import tokenize
 import symbol
+import re
 from StringIO import StringIO
 import pycep.tokenizer
 
@@ -74,7 +75,12 @@ def suite(source, totuple=False):
     """
 
     tokens = TokenIterator(pycep.tokenizer.generate_tokens(StringIO(source).readline))
-    result = _file_input(tokens)
+
+    if tokens.coding:
+        result = _encoding_decl(tokens)
+        result.insert(1, _file_input(tokens))
+    else:
+        result = _file_input(tokens)
 
     if totuple:
         return listit(result)
@@ -83,6 +89,13 @@ def suite(source, totuple=False):
 
 def expr(source, totuple=False):
     tokens = TokenIterator(pycep.tokenizer.generate_tokens(StringIO(source).readline))
+
+    if tokens.coding:
+        result = _encoding_decl(tokens)
+        result.insert(1, _file_input(tokens))
+    else:
+        result = _file_input(tokens)
+
     result = _eval_input(tokens)
 
     if totuple:
@@ -2185,7 +2198,11 @@ def _encoding_decl(tokens):
 
         encoding_decl: NAME
     """
-    raise NotImplementedError
+    result = [symbol.encoding_decl]
+
+    result.append(tokens.coding)
+
+    return result
 
 def _yield_expr(tokens):
     """Parse a yield expression.
@@ -2211,8 +2228,22 @@ class TokenIterator(object):
 
     def __init__(self, generator, skip_tokens=(tokenize.NL, token.N_TOKENS)):
         self._index = -1
-        self._values = [tok for tok in list(generator) if tok[0] not in skip_tokens]
         self.filename = "<string>"
+        self.coding = None
+
+        toks = list(generator)
+        coding = re.compile("^[ \t\v]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)")
+
+        for tok in toks:
+            lineno = tok[2][0]
+            if tok[0] == token.N_TOKENS and lineno in (1, 2):
+                match = coding.match(tok[1])
+                if match:
+                    self.coding = match.group(1)
+            elif lineno > 2:
+                break
+
+        self._values = [tok for tok in toks if tok[0] not in skip_tokens]
 
     def check(self, token_type, token_name=None, lookahead=1):
         if self._index + lookahead >= len(self._values):

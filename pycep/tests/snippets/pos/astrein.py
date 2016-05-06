@@ -1,4 +1,5 @@
 # nonsense-script to explore edge edge cases in pycep's parser and analyzer
+# -*- coding: ascii -*-
 
 @my_decorator
 @another_decorator('/login', methods=['GET', 'POST'])
