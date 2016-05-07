@@ -446,7 +446,10 @@ def _simple_stmt(tokens):
 
     result.append(_small_stmt(tokens))
 
-    while tokens.check(token.OP, ";"):
+    while tokens.check(token.OP, ";") and (tokens.check(token.NAME, lookahead=2) or \
+        tokens.check(token.OP, lookahead=2) or tokens.check(token.NUMBER, lookahead=2) or \
+        tokens.check(token.STRING, lookahead=2)):
+
         result.append(tokens.accept(token.OP, ";", result_token=token.SEMI))
         result.append(_small_stmt(tokens))
 
