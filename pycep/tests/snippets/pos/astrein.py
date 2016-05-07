@@ -210,3 +210,7 @@ g("arg1 on this line"
 count, = cursor.fetchone()
 
 kwds["buffering"] = True;
+
+result = []
+for x, in [(1,), (2,), (3,)]:
+    result.append(x)

@@ -104,6 +104,11 @@ def listit(tup):
     else:
         return tup
 
+KEYWORDS = ("and", "as", "assert", "break", "class", "continue", "def",
+            "del", "elif", "else", "except", "exec", "finally", "for", "from",
+            "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
+            "print", "raise", "return", "try", "while", "with", "yield")
+
 def _single_input(tokens):
     """Parse a single input.
 
@@ -1571,11 +1576,6 @@ def _atom(tokens):
     """
     result = [symbol.atom]
 
-    keywords = ("and", "as", "assert", "break", "class", "continue", "def",
-                "del", "elif", "else", "except", "exec", "finally", "for", "from",
-                "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
-                "print", "raise", "return", "try", "while", "with", "yield")
-
     if tokens.check(token.OP, "("):
         result.append(tokens.accept(token.OP, "(", result_token=token.LPAR))
 
@@ -1606,7 +1606,7 @@ def _atom(tokens):
     elif tokens.check(token.NUMBER):
         result.append(tokens.accept(token.NUMBER))
     elif tokens.check(token.NAME):
-        if tokens.check(token.NAME, keywords):
+        if tokens.check(token.NAME, KEYWORDS):
             tokens.accept(token.NAME) # increment token pointer to offending token for correct error message
             raise tokens.error("Keywords cannot appear here")
         result.append(tokens.accept(token.NAME))
@@ -1820,7 +1820,7 @@ def _exprlist(tokens):
 
     result.append(_expr(tokens))
 
-    while tokens.check(token.OP, ","):
+    while tokens.check(token.OP, ",") and tokens.check_expr(lookahead=2):
         result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
         result.append(_expr(tokens))
 
@@ -2306,12 +2306,17 @@ class TokenIterator(object):
     def check_test(self, lookahead=1):
         """Shorthand notation to check whether next statement is a ``test``"""
         return self.check(token.NAME, "not", lookahead=lookahead) or \
-            self.check(token.OP, ("+", "-", "~", "(", "[", "{", "`"), lookahead=lookahead) or \
-            self.check(token.NAME, lookahead=lookahead) or \
-            self.check(token.NUMBER, lookahead=lookahead) or \
-            self.check(token.STRING, lookahead=lookahead)
+            self.check_expr(lookahead)
 
     def check_comp_op(self):
         """Shorthand notation to check whether next statement is a ``comp_op``"""
         return self.check(token.OP, ("<", ">", "==", ">=", "<=", "<>", "!=")) or \
             self.check(token.NAME, ("in", "not", "is"))
+
+    def check_expr(self, lookahead=1):
+        """Shorthand notation to check whether next statement is an ``expr``"""
+        return (self.check(token.OP, ("+", "-", "~", "(", "[", "{", "`"), lookahead=lookahead) or \
+            self.check(token.NAME, lookahead=lookahead) or \
+            self.check(token.NUMBER, lookahead=lookahead) or \
+            self.check(token.STRING, lookahead=lookahead)) and not \
+            self.check(token.NAME, KEYWORDS, lookahead=lookahead)
