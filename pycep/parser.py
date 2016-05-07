@@ -1187,7 +1187,7 @@ def _except_clause(tokens):
             if tokens.check(token.NAME, "as"):
                 result.append(tokens.accept(token.NAME, "as"))
             elif tokens.check(token.OP, ","):
-                result.append(tokens.accept(token.OP, ","))
+                result.append(tokens.accept(token.OP, ",", result_token=token.COMMA))
             else:
                 tokens.error("Expecting ('as' | ',')")
 
