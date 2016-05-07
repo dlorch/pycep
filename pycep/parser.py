@@ -2306,7 +2306,10 @@ class TokenIterator(object):
     def check_test(self, lookahead=1):
         """Shorthand notation to check whether next statement is a ``test``"""
         return self.check(token.NAME, "not", lookahead=lookahead) or \
-            self.check_expr(lookahead)
+            self.check(token.OP, ("+", "-", "~", "(", "[", "{", "`"), lookahead=lookahead) or \
+            self.check(token.NAME, lookahead=lookahead) or \
+            self.check(token.NUMBER, lookahead=lookahead) or \
+            self.check(token.STRING, lookahead=lookahead)
 
     def check_comp_op(self):
         """Shorthand notation to check whether next statement is a ``comp_op``"""

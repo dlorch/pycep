@@ -214,3 +214,5 @@ kwds["buffering"] = True;
 result = []
 for x, in [(1,), (2,), (3,)]:
     result.append(x)
+
+bases = filter(lambda x: x is not Enum, bases)
