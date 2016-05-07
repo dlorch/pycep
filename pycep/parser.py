@@ -90,11 +90,7 @@ def suite(source, totuple=False):
 def expr(source, totuple=False):
     tokens = TokenIterator(pycep.tokenizer.generate_tokens(StringIO(source).readline))
 
-    if tokens.coding:
-        result = _encoding_decl(tokens)
-        result.insert(1, _eval_input(tokens))
-    else:
-        result = _eval_input(tokens)
+    result = _eval_input(tokens)
 
     if totuple:
         return listit(result)
