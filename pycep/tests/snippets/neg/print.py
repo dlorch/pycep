@@ -1,4 +1,6 @@
-# Python 2.7's *parser* is context-sensitive
+# The following is an illegal program, as __future__ statements must begin near
+# to the top of the program. Python will reject it. However, Python's *parser*
+# module happily accepts this file and switches parsing modes mid-program.
 
 # Derivation of ``print``:
 #
