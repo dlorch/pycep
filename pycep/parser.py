@@ -112,13 +112,20 @@ def check_future_statements(result):
     # pylint: disable=W0603,C0103
     global future_print_function
 
+    modules = []
+
     if result[2][0] == symbol.dotted_name and result[2][1][0] == token.NAME:
         if result[2][1][1] == "__future__":
-            modules = result[4][1::2] # every second element is a module name
-            for module in modules:
-                if module[1][1] == "print_function":
-                    KEYWORDS.remove("print")
-                    future_print_function = True
+            if result[4][0] == symbol.import_as_names:
+                modules = result[4][1::2] # every second element is a module name
+            elif len(result) > 5 and result[5][0] == symbol.import_as_names:
+                modules = result[5][1::2] # every second element is a module name
+
+    for module in modules:
+        if module[1][1] == "print_function":
+            future_print_function = True
+            if "print" in KEYWORDS:
+                KEYWORDS.remove("print")
 
 KEYWORDS = ["and", "as", "assert", "break", "class", "continue", "def",
             "del", "elif", "else", "except", "exec", "finally", "for", "from",
