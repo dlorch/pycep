@@ -142,7 +142,7 @@ Implementation Status
 +=============+=========+=====================================================+ 
 | Tokenizer   | 0%      | Forwarding calls to ``tokenize.generate_tokens()``. |
 +-------------+---------+-----------------------------------------------------+ 
-| Parser      | 90%     | Pretty good coverage.                               |
+| Parser      | 98%     | Very good coverage (except handling of encodings)   |
 +-------------+---------+-----------------------------------------------------+ 
 | Analyzer    | 6%      | Analyzing a handful of example programs.            | 
 +-------------+---------+-----------------------------------------------------+ 
