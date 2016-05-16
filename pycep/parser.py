@@ -109,6 +109,11 @@ KEYWORDS = ("and", "as", "assert", "break", "class", "continue", "def",
             "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
             "print", "raise", "return", "try", "while", "with", "yield")
 
+ENCODING_ALIASES = {
+    "iso-latin-1-unix": "iso-8859-1",
+    "latin-1": "iso-8859-1"
+}
+
 def _single_input(tokens):
     """Parse a single input.
 
@@ -2236,9 +2241,12 @@ class TokenIterator(object):
             if tok[0] == token.N_TOKENS and lineno in (1, 2):
                 match = coding.match(tok[1])
                 if match:
-                    self.coding = match.group(1)
+                    self.coding = match.group(1).lower()
             elif lineno > 2:
                 break
+
+        if self.coding in ENCODING_ALIASES:
+            self.coding = ENCODING_ALIASES[self.coding]
 
         self._values = [tok for tok in toks if tok[0] not in skip_tokens]
 

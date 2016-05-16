@@ -78,6 +78,12 @@ class TestParser(unittest.TestCase):
         self.assertEquals(parser.suite(source).totuple(),
                           pycep.parser.suite(source, totuple=True))
 
+    def test_encoding_alias(self):
+        for snippet in ["encoding_ISO_8859_1.py", "encoding_iso_latin_1_unix.py", "encoding_latin_1.py"]:
+            source = open(path.join(SNIPPETS, "pos", snippet)).read()
+            self.assertEquals(parser.suite(source).totuple(),
+                              pycep.parser.suite(source, totuple=True))
+
     def test_eval_input(self):
         code = "x+1"
         self.assertEquals(parser.expr(code).totuple(),
