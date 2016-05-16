@@ -72,7 +72,11 @@ def suite(source, totuple=False):
         * Leaf Nodes: https://docs.python.org/2/library/token.html
         * LL Parser: https://en.wikipedia.org/wiki/LL_parser
         * Recursive-Descent Parser: https://en.wikipedia.org/wiki/Recursive_descent_parser
+        * Future Statement Definitions: https://docs.python.org/2/library/__future__.html
     """
+    # pylint: disable=W0603,C0103
+    global future_print_function
+    future_print_function = False
 
     tokens = TokenIterator(pycep.tokenizer.generate_tokens(StringIO(source).readline))
 
@@ -104,15 +108,30 @@ def listit(tup):
     else:
         return tup
 
-KEYWORDS = ("and", "as", "assert", "break", "class", "continue", "def",
+def check_future_statements(result):
+    # pylint: disable=W0603,C0103
+    global future_print_function
+
+    if result[2][0] == symbol.dotted_name and result[2][1][0] == token.NAME:
+        if result[2][1][1] == "__future__":
+            modules = result[4][1::2] # every second element is a module name
+            for module in modules:
+                if module[1][1] == "print_function":
+                    KEYWORDS.remove("print")
+                    future_print_function = True
+
+KEYWORDS = ["and", "as", "assert", "break", "class", "continue", "def",
             "del", "elif", "else", "except", "exec", "finally", "for", "from",
             "global", "if", "import", "in", "is", "lambda", "not", "or", "pass",
-            "print", "raise", "return", "try", "while", "with", "yield")
+            "print", "raise", "return", "try", "while", "with", "yield"]
 
 ENCODING_ALIASES = {
     "iso-latin-1-unix": "iso-8859-1",
     "latin-1": "iso-8859-1"
 }
+
+# pylint: disable=C0103
+future_print_function = False
 
 def _single_input(tokens):
     """Parse a single input.
@@ -485,8 +504,14 @@ def _small_stmt(tokens):
     """
     result = [symbol.small_stmt]
 
+    # pylint: disable=W0602
+    global future_print_function
+
     if tokens.check(token.NAME, "print"):
-        result.append(_print_stmt(tokens))
+        if future_print_function:
+            result.append(_expr_stmt(tokens))
+        else:
+            result.append(_print_stmt(tokens))
     elif tokens.check(token.NAME, "del"):
         result.append(_del_stmt(tokens))
     elif tokens.check(token.NAME, "pass"):
@@ -843,6 +868,8 @@ def _import_from(tokens):
         result.append(_import_as_names(tokens))
     else:
         tokens.error("Expecting ('*' | '(' import_as_names ')' | import_as_names)")
+
+    check_future_statements(result)
 
     return result
 
