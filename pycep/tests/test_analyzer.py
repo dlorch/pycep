@@ -36,6 +36,10 @@ class TestAnalyzer(unittest.TestCase):
         source = open(path.join(SAMPLE_PROGRAMS, "helloworld.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
     
+    def test_parentsbabies(self):
+        source = open(path.join(SAMPLE_PROGRAMS, "parentsbabies.py")).read()
+        self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
+    
     def test_variable_scope(self):
         source = open(path.join(SNIPPETS, "pos", "variable_scope.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
