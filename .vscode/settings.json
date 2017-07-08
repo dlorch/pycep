@@ -1,0 +1,6 @@
+{
+    "python.unitTest.nosetestArgs": [
+        "pycep"
+    ],
+    "python.unitTest.nosetestsEnabled": true
+}
