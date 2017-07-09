@@ -454,7 +454,16 @@ class Analyzer:
 
     def visit_for_stmt(self, values, ctx):
         """for_stmt: 'for' exprlist 'in' testlist ':' suite ['else' ':' suite]"""
-        raise NotImplementedError("for_stmt")
+        
+        node = ast.For()
+        node.target = self.visit(values[1], ast.Store())
+        node.iter = self.visit(values[3], ctx)
+        node.body = self.visit(values[5], ctx)
+
+        # TODO: 'else' ':' suite
+        node.orelse = None
+
+        return node
 
     def visit_try_stmt(self, values, ctx):
         """try_stmt: ('try' ':' suite
@@ -661,34 +670,55 @@ class Analyzer:
                   '{' [dictorsetmaker] '}' |
                   '`' testlist1 '`' |
                   NAME | NUMBER | STRING+)"""
-        if values[0][0] == token.NAME:
-            node = ast.Name()
-            node.id = values[0][1]
-            node.ctx = ctx
-            return node
-        elif values[0][0] == token.NUMBER:
-            node = ast.Num()
-            node.n = int(values[0][1]) # TODO
-            return node
-        elif values[0][0] == token.LPAR:
+
+        if values[0][0] == token.LPAR:
             node = ast.Tuple()
             node.elts = self.visit(values[1], ctx)
             node.ctx = ctx
             # TODO other values?
-            return node
+
+        elif values[0][0] == token.LSQB:
+            node = ast.List()
+            node.elts = []
+            node.ctx = ctx
+
+            if values[1][0] == symbol.listmaker:
+                node.elts = self.visit(values[1], ctx)
+
+        elif values[0][0] == token.NAME:
+            node = ast.Name()
+            node.id = values[0][1]
+            node.ctx = ctx
+
+        elif values[0][0] == token.NUMBER:
+            node = ast.Num()
+            node.n = int(values[0][1]) # TODO
+
         else:
-            return self.visit(values[0], ctx) # TODO
+            node = self.visit(values[0], ctx) # TODO
+
+        return node
 
     def visit_listmaker(self, values, ctx):
         """listmaker: test ( list_for | (',' test)* [','] )"""
-        raise NotImplementedError("listmaker")
 
-    def visit_testlist_comp(self, values, ctx):
-        """testlist_comp: test ( comp_for | (',' test)* [','] )"""
         result = []
+
         for value in values:
             if value[0] != token.COMMA:
                 result.append(self.visit(value, ctx))
+
+        return result
+
+    def visit_testlist_comp(self, values, ctx):
+        """testlist_comp: test ( comp_for | (',' test)* [','] )"""
+
+        result = []
+
+        for value in values:
+            if value[0] != token.COMMA:
+                result.append(self.visit(value, ctx))
+
         return result
 
     def visit_lambdef(self, values, ctx):
@@ -700,24 +730,30 @@ class Analyzer:
         
         if values[0][0] == token.LPAR:
             node = ast.Call()
-            
-            # TODO
+            node.args = []
+            node.keywords = []
+            node.starargs = None
+            node.kwargs = None
+
             if values[1][0] == symbol.arglist:
-                node.args = self.visit(values[1], ctx)
-            else:
-                node.args = []
+                results = self.visit(values[1], ctx)
+                
+                for result in results:
+                    if isinstance(result, ast.keyword):
+                        node.keywords.append(result)
+                    else: # TODO starargs, kwargs
+                        node.args.append(result)
         
-            node.keywords = [] # TODO
-            node.starargs = None # TODO
-            node.kwargs = None # TODO
         elif values[0][0] == token.LSQB:
             node = ast.Subscript()
             node.slice = self.visit(values[1], ctx)
             node.ctx = ctx
+
         elif values[0][0] == token.DOT:
             node = ast.Attribute()
             node.attr = values[1][1]
             node.ctx = ctx
+
         else:
             raise ValueError
         
@@ -754,9 +790,19 @@ class Analyzer:
 
     def visit_exprlist(self, values, ctx):
         """exprlist: expr (',' expr)* [',']"""
-        if len(values) > 1:
-            raise NotImplementedError("exprlist with multiple arguments not supported")
-        return [self.visit(values[0], ctx)]
+
+        if len(values) == 1:
+            result = [self.visit(values[0], ctx)]
+        else:
+            result = ast.Tuple()
+            result.elts = []
+            result.ctx = ctx
+
+            for value in values:
+                if value[0] != token.COMMA:
+                    result.elts.append(self.visit(value, ctx))
+
+        return result
 
     def visit_testlist(self, values, ctx):
         """testlist: test (',' test)* [',']"""
@@ -805,13 +851,18 @@ class Analyzer:
         result = []
 
         for value in values:
-            result.append(self.visit(value, ctx))
+            if value[0] != token.COMMA:
+                result.append(self.visit(value, ctx))
             
         return result
 
     def visit_argument(self, values, ctx):
         """argument: test [comp_for] | test '=' test"""
-        if len(values) == 2:
+
+        if len(values) == 1:
+            node = self.visit(values[0], ctx)
+
+        elif len(values) == 2:
             test = self.visit(values[0], ctx)
             comp_for = self.visit(values[1], ctx)
 
@@ -820,11 +871,18 @@ class Analyzer:
             node.elt = test
             node.generators = [comp_for]
 
-            return node
-        elif len(values) == 1:
-            return self.visit(values[0], ctx)
+        elif len(values) == 3:
+            node = ast.keyword()
+            
+            arg = self.visit(values[0], ctx)
+            node.arg = arg.id
+
+            node.value = self.visit(values[2], ctx)
+
         else:
-            raise NotImplementedError("symbol.argument with len(values) > 2 not supported")
+            raise ValueError
+
+        return node
 
     def visit_list_iter(self, values, ctx):
         """list_iter: list_for | list_if"""

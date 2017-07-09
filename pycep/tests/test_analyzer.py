@@ -28,6 +28,10 @@ class TestAnalyzer(unittest.TestCase):
         source = open(path.join(SAMPLE_PROGRAMS, "fib.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
 
+    def test_friends(self):
+        source = open(path.join(SAMPLE_PROGRAMS, "friends.py")).read()
+        self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
+
     def test_functions(self):
         source = open(path.join(SAMPLE_PROGRAMS, "functions.py")).read()
         self.assertEquals(ast.parse(source), pycep.analyzer.parse(source))
@@ -80,8 +84,11 @@ class TestAnalyzer(unittest.TestCase):
                     value2 = getattr(second, fieldname)
                     if isinstance(value, list):
                         for idx, v in enumerate(value):
-                            v2 = value2[idx]
-                            self.assertAstEqual(v, v2)
+                            if idx < len(value2):
+                                v2 = value2[idx]
+                                self.assertAstEqual(v, v2)
+                            else:
+                                self.fail("Expected: %s\n\nActual: %s" % (dump(v), "None"))
                     else:
                         self.assertAstEqual(value, value2)
 
