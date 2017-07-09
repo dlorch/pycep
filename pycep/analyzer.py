@@ -343,7 +343,9 @@ class Analyzer:
 
     def visit_break_stmt(self, values, ctx):
         """break_stmt: 'break'"""
-        raise NotImplementedError("break_stmt")
+
+        node = ast.Break()
+        return node
 
     def visit_continue_stmt(self, values, ctx):
         """continue_stmt: 'continue'"""
@@ -360,7 +362,12 @@ class Analyzer:
 
     def visit_yield_stmt(self, values, ctx):
         """yield_stmt: yield_expr"""
-        raise NotImplementedError("yield_stmt")
+
+        node = ast.Expr()
+        node.value = ast.Yield()
+        node.value.value = self.visit(values[0][2], ctx)
+
+        return node
 
     def visit_raise_stmt(self, values, ctx):
         """raise_stmt: 'raise' [test [',' test [',' test]]]"""
@@ -432,7 +439,13 @@ class Analyzer:
     
     def visit_if_stmt(self, values, ctx):
         """if_stmt: 'if' test ':' suite ('elif' test ':' suite)* ['else' ':' suite]"""
-        raise NotImplementedError("if_stmt")
+
+        node = ast.If()
+        node.test = self.visit(values[1], ctx)
+        node.body = self.visit(values[3], ctx)
+        node.orelse = [] # TODO
+
+        return node
 
     def visit_while_stmt(self, values, ctx):
         """while_stmt: 'while' test ':' suite ['else' ':' suite]"""
@@ -792,7 +805,7 @@ class Analyzer:
         """exprlist: expr (',' expr)* [',']"""
 
         if len(values) == 1:
-            result = [self.visit(values[0], ctx)]
+            result = self.visit(values[0], ctx)
         else:
             result = ast.Tuple()
             result.elts = []
@@ -906,7 +919,7 @@ class Analyzer:
             raise NotImplementedError("comp_for with more than 4 arguments not supported")
 
         node = ast.comprehension()
-        node.target = self.visit(values[1], ast.Store())[0] # TODO
+        node.target = self.visit(values[1], ast.Store())
         node.iter = self.visit(values[3], ctx)
         node.ifs = []
         
