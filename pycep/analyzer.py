@@ -461,7 +461,7 @@ class Analyzer:
         node.body = self.visit(values[5], ctx)
 
         # TODO: 'else' ':' suite
-        node.orelse = None
+        node.orelse = []
 
         return node
 

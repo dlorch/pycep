@@ -144,7 +144,7 @@ Implementation Status
 +-------------+---------+-----------------------------------------------------+ 
 | Parser      | 98%     | Very good coverage (except handling of encodings)   |
 +-------------+---------+-----------------------------------------------------+ 
-| Analyzer    | 6%      | Analyzing a handful of example programs.            | 
+| Analyzer    | 8%      | Analyzing a handful of example programs.            | 
 +-------------+---------+-----------------------------------------------------+ 
 | Interpreter | 3%      | Interpreting very few example programs.             | 
 +-------------+---------+-----------------------------------------------------+
