@@ -65,7 +65,9 @@ class TestAnalyzer(unittest.TestCase):
                 # Fields can be AST items too, e.g. ast.arguments(),
                 # ast.Store(), ast.Load(), ast.Param(). Recurse into those items
                 elif isinstance(value, ast.AST):
-                    return astShallowEqual(value, value2)
+                    result = astShallowEqual(value, value2)
+                    if not result:
+                        return False
                 else:
                     if value != value2:
                         return False
@@ -75,6 +77,9 @@ class TestAnalyzer(unittest.TestCase):
         if type(first) != type(second):
             self.fail("Expected: %s\n\nActual: %s" % (dump(first), dump(second)))
         elif isinstance(first, ast.AST):
+            # the reason to first do a shallow equality check rather than a deep one
+            # is that it gives better debugging output - rather than only seeing the
+            # sub-node that caused the inequality, we can see the full faulty node
             if not astShallowEqual(first, second):
                 self.fail("Expected: %s\n\nActual: %s" % (dump(first), dump(second)))
             else:
@@ -84,11 +89,8 @@ class TestAnalyzer(unittest.TestCase):
                     value2 = getattr(second, fieldname)
                     if isinstance(value, list):
                         for idx, v in enumerate(value):
-                            if idx < len(value2):
-                                v2 = value2[idx]
-                                self.assertAstEqual(v, v2)
-                            else:
-                                self.fail("Expected: %s\n\nActual: %s" % (dump(v), "None"))
+                            v2 = value2[idx]
+                            self.assertAstEqual(v, v2)
                     else:
                         self.assertAstEqual(value, value2)
 
