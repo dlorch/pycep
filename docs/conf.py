@@ -55,7 +55,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'PyCep'
-copyright = '2015, Daniel Lorch'
+copyright = '2015-2017, Daniel Lorch'
 author = 'Daniel Lorch'
 
 # The version info for the project you're documenting, acts as replacement for
