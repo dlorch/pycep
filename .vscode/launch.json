@@ -9,8 +9,6 @@
 			"program": "${workspaceRoot}/pycep/cli.py",
 			"args": ["${workspaceRoot}/pycep/tests/snippets/pos/astrein.py"],
 			"debugOptions": [
-				"WaitOnAbnormalExit",
-				"WaitOnNormalExit",
 				"RedirectOutput"
 			],
 			"env": {
