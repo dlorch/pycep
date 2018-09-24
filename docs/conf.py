@@ -17,6 +17,12 @@ import sys
 import os
 import shlex
 
+# Fix: ImportError: cannot import name Directive
+try:
+    from sphinx.util.compat import Directive
+except ImportError:
+    from docutils.parsers.rst import Directive
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -55,7 +61,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'PyCep'
-copyright = '2015-2017, Daniel Lorch'
+copyright = '2015-2018, Daniel Lorch'
 author = 'Daniel Lorch'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -294,7 +300,6 @@ texinfo_documents = [
 # Disqus integration to ReadTheDocs:
 # https://github.com/whardier/bogomip/blob/master/conf.py#L269
 from docutils import nodes
-from sphinx.util.compat import Directive
 
 class Disqus(Directive):
     required_arguments = 2
