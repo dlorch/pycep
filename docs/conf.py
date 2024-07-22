@@ -297,14 +297,6 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
-# Deprecation of Sphinx context injection at build time, July 2024
-# Set canonical URL from the Read the Docs Domain
-html_baseurl = os.environ.get("READTHEDOCS_CANONICAL_URL", "")
-
-# Tell Jinja2 templates the build is running on Read the Docs
-if os.environ.get("READTHEDOCS", "") == "True":
-    html_context["READTHEDOCS"] = True
-
 # Disqus integration to ReadTheDocs:
 # https://github.com/whardier/bogomip/blob/master/conf.py#L269
 from docutils import nodes
